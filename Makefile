@@ -1,0 +1,25 @@
+CC=arm-linux-gnueabihf-gcc
+#HAD TO CHANGE AWAY FROM GNUEABI
+
+#Default location for h files is ./source
+CFLAGS= -std=gnu99 -Wall -Werror -I./src -L lib -lm -lpthread -lrp
+
+#h files used go here
+DEPS= rp.h colour.h imu.h
+
+#c files used go here (with .o extension)
+OBJ = src/main.o src/colour.o src/imu.o
+
+#name of generated binaries
+BIN = um7rp
+
+%.o: %.c $(DEPS)
+	$(CC) -c -o $@ $< $(CFlags)
+
+um7rp: $(OBJ)
+	$(CC) -o $@ $^ $(CFLAGS)
+
+.PHONY: clean
+
+clean:
+	rm -f *.o src/*.o
