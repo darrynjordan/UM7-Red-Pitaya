@@ -23,17 +23,16 @@ int main(int argc, char *argv[])
     {
         switch (opt)
         {
-            case 'd':
-                is_debug_mode = 1;
-                break; 
+			case 'd':
+				is_debug_mode = 1;
+				break; 
 			case 'h':
 				help();
 				break;
-            case '?':
+			case '?':
 				fprintf (stderr, "Unknown option character `\\x%x'.\n", optopt);
         }
-    }
-	
+    }	
 	
 	splash();
 	
@@ -80,8 +79,7 @@ int main(int argc, char *argv[])
 				printf("MAGN_X: \t%f\n", bit32ToFloat(bit8ArrayToBit32(&global_packet.data[32])));
 				printf("MAGN_Y: \t%f\n", bit32ToFloat(bit8ArrayToBit32(&global_packet.data[36])));
 				printf("MAGN_Z: \t%f\n", bit32ToFloat(bit8ArrayToBit32(&global_packet.data[40])));
-				printf("MAGN_TIME: \t%f\n", bit32ToFloat(bit8ArrayToBit32(&global_packet.data[44])));
-					
+				printf("MAGN_TIME: \t%f\n", bit32ToFloat(bit8ArrayToBit32(&global_packet.data[44])));					
 				usleep(0.1e6);			
 			}
 		}	
@@ -100,15 +98,11 @@ void splash(void)
 	printf("------\n");	
 }
 
+
 void help(void)
 {
 	splash();
 	printf(" -h: display this help screen\n");
 	printf(" -d: enable debug mode\n");
-	printf(" -i: enable imu mode\n");
-	printf(" -l: name of local oscillator (lo) synth parameter file\n");
-	printf(" -t: name of radio frequency (rf) synth parameter file\n");
-	printf(" -r: write output files to /tmp\n");
-	printf(" -c: input adc channel \t(0 or 1)\n");	
 	exit(EXIT_SUCCESS);	
 }
