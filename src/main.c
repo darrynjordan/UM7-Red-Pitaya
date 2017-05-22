@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #include "rp.h"
 #include "colour.h"
@@ -9,12 +10,14 @@
 
 void splash(void);
 void help(void);
+void parse_uart(void);
 
 //Global UM7 receive packet
 extern UM7_packet global_packet;
 
 int main(int argc, char *argv[])
 {
+	pthread_t imu_thread;
 	int opt;
 	int is_debug_mode;
 	
@@ -58,9 +61,24 @@ int main(int argc, char *argv[])
 	//initialise IMU and configure update rates
 	initIMU();
 	
-	while(1)
-	{		
+	if (pthread_create(&imu_thread, NULL, (void *)parse_uart, NULL))
+	{
+		cprint("[!!] ", BRIGHT, RED);
+		printf("Error launching imu thread.\n");
+	}
 
+	pthread_join(imu_thread, NULL);
+
+	rp_Release();
+
+	return EXIT_SUCCESS;
+}
+
+
+void parse_uart(void)
+{
+	for (int i = 0; i < 100; i++)
+	{	
 		if (rxPacket(100) == 0)
 		{			
 			if ((global_packet.address == DREG_ALL_PROC) && (global_packet.packet_type &= PT_IS_BATCH))
@@ -84,10 +102,6 @@ int main(int argc, char *argv[])
 			}
 		}	
 	}
-
-	rp_Release();
-
-	return EXIT_SUCCESS;
 }
 
 
