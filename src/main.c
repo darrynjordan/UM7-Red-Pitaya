@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 	}
 
 	//sleep for 5 seconds to emulate other work
-	for (int i = 0; i < 5; i++)
+	for (int i = 0; i < 10; i++)
 	{
 		usleep(1e6);
 	}
@@ -100,6 +100,8 @@ void parse_uart(void)
 		exit(EXIT_FAILURE);
 	}
 	
+	printf("IMU active.\n");
+	
 	//while experiment is active
 	while (is_experiment_active)
 	{	
@@ -113,8 +115,7 @@ void parse_uart(void)
 				{
 					float data = bit32ToFloat(bit8ArrayToBit32(&global_packet.data[4*i]));
 					fwrite(&data, sizeof(float), 1, imuFile);
-				}		
-				usleep(0.1e6);				
+				}					
 			}
 		}	
 	}
