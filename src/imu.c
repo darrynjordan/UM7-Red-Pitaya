@@ -143,15 +143,16 @@ void initIMU(void)
 	setHomePosition();	
 	//factoryReset();
 	
-	uint8_t zero_buffer[4] = {0, 0, 0, 0};
-	uint8_t proc_buffer[4] = {0, 0, 0, 255};
+	uint8_t zero[4] = {0, 0, 0, 0};
+	uint8_t all_proc[4] = {0, 0, 0, 255};
+	//uint8_t position[4] = {0, 0, 255, 0};
 	
-	writeRegister(CREG_COM_RATES1, 4, zero_buffer);		// raw gyro, accel and mag rate	
-	writeRegister(CREG_COM_RATES2, 4, zero_buffer);		// temp rate and all raw data rate		
-	writeRegister(CREG_COM_RATES3, 4, zero_buffer);		// proc accel, gyro, mag rate		
-	writeRegister(CREG_COM_RATES4, 4, proc_buffer);	    // all proc data rate	
-	writeRegister(CREG_COM_RATES5, 4, zero_buffer);		// quart, euler, position, velocity rate
-	writeRegister(CREG_COM_RATES6, 4, zero_buffer);		// heartbeat rate
+	writeRegister(CREG_COM_RATES1, 4, zero);		// raw gyro, accel and mag rate	
+	writeRegister(CREG_COM_RATES2, 4, zero);		// temp rate and all raw data rate		
+	writeRegister(CREG_COM_RATES3, 4, zero);		// proc accel, gyro, mag rate		
+	writeRegister(CREG_COM_RATES4, 4, all_proc);	// all proc data rate	
+	writeRegister(CREG_COM_RATES5, 4, zero);		// quart, euler, position, velocity rate
+	writeRegister(CREG_COM_RATES6, 4, zero);		// heartbeat rate
 }
 
 void initUART(void)

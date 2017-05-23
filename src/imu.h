@@ -41,6 +41,13 @@
 #define DREG_MAG_PROC_Z 		0x6B
 #define DREG_MAG_PROC_TIME 		0x6C
 
+#define DREG_POSITION 			0x75
+
+#define DREG_POSITION_N 		0x75
+#define DREG_POSITION_E 		0x76
+#define DREG_POSITION_UP 		0x77
+#define DREG_POSITION_TIME 		0x78
+
 #define GET_FW_REVISION			0xAA
 #define FLASH_COMMIT			0xAB
 #define RESET_TO_FACTORY		0xAC
