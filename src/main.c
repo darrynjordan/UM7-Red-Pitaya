@@ -106,7 +106,7 @@ void parse_uart(void)
 	while (is_experiment_active)
 	{	
 		//process UART buffer and check for valid packets
-		if (rxPacket(50) == 0)
+		/*if (rxPacket(100) == 0)
 		{		
 			//process valid packet data and write to file
 			if ((global_packet.address == DREG_ALL_PROC) && (global_packet.packet_type &= PT_IS_BATCH))
@@ -123,14 +123,14 @@ void parse_uart(void)
 				procHealth(&global_packet);
 			}
 				
-			//printf("reg_address: %i\n", global_packet.address);
+			printf("reg_address: %i\n", global_packet.address);
 
-		}	
+		}*/
 		
 		//readRegister(DREG_GPS_LATITUDE);
 		
-		/*fwrite(getUARTbuffer(200), sizeof(uint8_t), 200, imuFile);		
-		usleep(0.01e6);*/
+		fwrite(getUARTbuffer(200), sizeof(uint8_t), 200, imuFile);		
+		usleep(0.1e6);
 	}
 	
 	fclose(imuFile);
