@@ -56,6 +56,13 @@
 #define SET_MAG_REFERENCE		0xB0
 #define RESET_EKF				0xB3
 
+#define DREG_GPS_LATITUDE		0x7D
+#define DREG_GPS_LONGITUDE		0x7E
+#define DREG_GPS_ALTITUDE		0x7F
+#define DREG_GPS_COURSE			0x80
+#define DREG_GPS_SPEED			0x81
+#define DREG_GPS_TIME			0x82
+
 #define PT_HAS_DATA 			0b10000000
 #define PT_IS_BATCH 			0b01000000
 #define PT_BL_3		 			0b00100000
@@ -97,5 +104,6 @@ float bit32ToFloat(uint32_t bit32);
 void procHealth(UM7_packet* healthPacket);
 
 uint8_t parseSerialData(uint8_t* rx_data, uint8_t rx_length, UM7_packet* packet);
+uint8_t* getUARTbuffer(int size);
 
 #endif

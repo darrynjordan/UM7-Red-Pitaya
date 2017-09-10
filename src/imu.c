@@ -143,16 +143,24 @@ void initIMU(void)
 	setHomePosition();	
 	//factoryReset();
 	
+	//baud rate of the UM7 main serial port = 115200
+	uint8_t baud = 5 << 4;
+	//baud rate of the UM7 auxiliary serial port = 57600
+	baud += 4;
+	
 	uint8_t zero[4] = {0, 0, 0, 0};
 	uint8_t all_proc[4] = {0, 0, 0, 255};
+	uint8_t com_settings[4] = {baud, 0, 1, 0};
 	//uint8_t position[4] = {0, 0, 255, 0};
+	//uint8_t health[4] = {0, 6, 0, 0};
 	
-	writeRegister(CREG_COM_RATES1, 4, zero);		// raw gyro, accel and mag rate	
-	writeRegister(CREG_COM_RATES2, 4, zero);		// temp rate and all raw data rate		
-	writeRegister(CREG_COM_RATES3, 4, zero);		// proc accel, gyro, mag rate		
-	writeRegister(CREG_COM_RATES4, 4, all_proc);	// all proc data rate	
-	writeRegister(CREG_COM_RATES5, 4, zero);		// quart, euler, position, velocity rate
-	writeRegister(CREG_COM_RATES6, 4, zero);		// heartbeat rate
+	writeRegister(CREG_COM_SETTINGS, 4, com_settings);	// baud rates, auto transmission
+	writeRegister(CREG_COM_RATES1, 4, zero);			// raw gyro, accel and mag rate	
+	writeRegister(CREG_COM_RATES2, 4, zero);			// temp rate and all raw data rate		
+	writeRegister(CREG_COM_RATES3, 4, zero);			// proc accel, gyro, mag rate		
+	writeRegister(CREG_COM_RATES4, 4, all_proc);		// all proc data rate	
+	writeRegister(CREG_COM_RATES5, 4, zero);			// quart, euler, position, velocity rate
+	//writeRegister(CREG_COM_RATES6, 4, health);			// heartbeat rate
 }
 
 void initUART(void)
@@ -443,8 +451,7 @@ void checkCommandSuccess(char* command_name)
 
 void readRegister(uint8_t address)
 {
-	rxPacket(60);
-	//writeRegister(address, 0, zero_buffer);
+	writeRegister(address, 0, zero_buffer);
 	//printf("IMU Register %i: %f\n", address, bit32ToFloat(bit8ArrayToBit32(global_packet.data)));	
 	
 	if ((global_packet.address == address) && (global_packet.packet_type &= PT_IS_BATCH))
@@ -457,9 +464,11 @@ void readRegister(uint8_t address)
 	}
 	else if (global_packet.address == address)
 	{
-		printf("UM7_R%i: %f\n", global_packet.address, bit32ToFloat(bit8ArrayToBit32(&global_packet.data[0])));
-	}
-	
+		printf("UM7_R%i: ", global_packet.address);
+		for (int i = 0; i < 4; i++)
+			printf(" %i", global_packet.data[i]);
+		printf("\n");
+	}	
 }
 
 
@@ -581,6 +590,49 @@ uint32_t bit8ArrayToBit32(uint8_t *data)
 	bit32 += (uint32_t)(data[0] << 24);
 	
 	return bit32;
+}
+
+
+uint8_t* getUARTbuffer(int size)
+{
+	// don't block serial read 
+	fcntl(uart_fd, F_SETFL, FNDELAY); 
+	
+	uint8_t* uart_rx_buffer = (uint8_t *)malloc(size*sizeof(uint8_t));
+  
+	while(1)
+	{
+		if (uart_fd == -1)
+		{
+			cprint("[!!] ", BRIGHT, RED);
+			printf("UART has not been initialized.\n");
+		}
+		
+		// perform uart read
+		int rx_length = read(uart_fd, (void*)uart_rx_buffer, size);
+		
+		if (rx_length == -1)
+		{
+			//printf("No UART data available yet, check again.\n");
+			if(errno == EAGAIN)
+			{
+				// an operation that would block was attempted on an object that has non-blocking mode selected.
+				//printf("UART read blocked, try again.\n");
+				continue;
+			} 
+			else
+			{
+				printf("Error reading from UART.\n");
+			}
+		  
+		}
+		else if (rx_length == size)
+		{	
+			return uart_rx_buffer;
+		}
+	}  
+	
+	tcflush(uart_fd, TCIFLUSH); 
 }
 
 
