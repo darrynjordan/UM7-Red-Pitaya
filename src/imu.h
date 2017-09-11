@@ -1,5 +1,5 @@
-#ifndef UM7_UART_H
-#define UM7_UART_H
+#ifndef UM7_IMU_H
+#define UM7_IMU_H
 
 #include <stdint.h>
 #include <stdio.h>
@@ -11,6 +11,8 @@
 #include <stdlib.h>
 
 #include "colour.h"
+#include "binary.h"
+#include "uart.h"
 
 #define PACKET_DATA_SIZE 		48
 
@@ -72,20 +74,29 @@
 #define PT_CF	 				0b00000001
 #define PT_READ	 				0b00000000
 
-typedef struct UM7_packet_struct
+typedef struct 
 {
   uint8_t address;
   uint8_t packet_type;
   uint16_t checksum; 
   uint8_t data[PACKET_DATA_SIZE];
   uint8_t n_data_bytes;
-} UM7_packet;
+} packet;
 
-void initUART(void);
+typedef struct 
+{
+  uint8_t sats_used;
+  uint8_t sats_view;
+  uint16_t hdop;  
+  uint8_t mag_norm;
+  uint8_t acc_norm; 
+  uint8_t acc_fail;
+  uint8_t gyro_fail;
+  uint8_t mag_fail;
+  uint8_t gps_fail;
+} heartbeat;
+
 void initIMU(void);
-int rxPacket(int size);
-int txPacket(UM7_packet* packet);
-int releaseConnection(void);
 
 void getFirmwareVersion(void);
 void flashCommit(void);
@@ -95,15 +106,17 @@ void setHomePosition(void);
 void setMagReference(void);
 void resetEKF(void);
 
-void checkCommandSuccess(char* command_name);
+int rxPacket(packet* tx_packet, int size);
+int txPacket(packet* tx_packet);
+int svPacket(packet* sv_packet);
+
+void checkCommandSuccess(packet* check_packet, char* command_name);
 void readRegister(uint8_t address);
-void writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data);
+packet writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data);
 
-uint32_t bit8ArrayToBit32(uint8_t *data);
-float bit32ToFloat(uint32_t bit32);
-void procHealth(UM7_packet* healthPacket);
+void procHealth(packet* healthPacket);
 
-uint8_t parseSerialData(uint8_t* rx_data, uint8_t rx_length, UM7_packet* packet);
-uint8_t* getUARTbuffer(int size);
+uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, packet* raw_packet, int address = -1);
+
 
 #endif

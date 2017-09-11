@@ -1,16 +1,15 @@
 #include "imu.h"
 
-// UART file discriptor
-int uart_fd = -1; 
+extern int uart_fd;
 
 // global zero buffer
 uint8_t zero_buffer[4] = {0, 0, 0, 0};
 
-// global UM7 Packet for data reception
-UM7_packet global_packet;
+// global healthbeat struct
+heartbeat beat;
 
 // Parse the serial data obtained through the UART interface and fit to a general packet structure
-uint8_t parseSerialData(uint8_t* rx_data, uint8_t rx_length, UM7_packet* packet)
+uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, packet* raw_packet)
 {
 	uint8_t index;
 	// Make sure that the data buffer provided is long enough to contain a full packet
@@ -95,22 +94,22 @@ uint8_t parseSerialData(uint8_t* rx_data, uint8_t rx_length, UM7_packet* packet)
 	// If we get here, we know that we have a full packet in the buffer. All that remains is to pull
 	// out the data and make sure the checksum is good.
 	// Start by extracting all the data
-	packet->address = rx_data[packet_index + 4];
+	raw_packet->address = rx_data[packet_index + 4];
 	
 	//printf("packet address = %i\n", (int)(packet->Address));
 	
-	packet->packet_type = PT;
+	raw_packet->packet_type = PT;
 
 	// Get the data bytes and compute the checksum all in one step
-	packet->n_data_bytes = data_length;
-	uint16_t computed_checksum = 's' + 'n' + 'p' + packet->packet_type + packet->address;	
+	raw_packet->n_data_bytes = data_length;
+	uint16_t computed_checksum = 's' + 'n' + 'p' + raw_packet->packet_type + raw_packet->address;	
 	
 	for( index = 0; index < data_length; index++ )
     {
 		// Copy the data into the packet structure's data array
-		packet->data[index] = rx_data[packet_index + 5 + index];
+		raw_packet->data[index] = rx_data[packet_index + 5 + index];
 		// Add the new byte to the checksum
-		computed_checksum += packet->data[index];		
+		computed_checksum += raw_packet->data[index];		
     }    
    
 	// Now see if our computed checksum matches the received checksum
@@ -126,7 +125,7 @@ uint8_t parseSerialData(uint8_t* rx_data, uint8_t rx_length, UM7_packet* packet)
     }
     
     //printf("checksum good!\n");
-	packet->checksum = computed_checksum;
+	raw_packet->checksum = computed_checksum;
 	// At this point, we've received a full packet with a good checksum. It is already
 	// fully parsed and copied to the packet structure, so return 0 to indicate that a packet was
 	// processed.
@@ -135,151 +134,27 @@ uint8_t parseSerialData(uint8_t* rx_data, uint8_t rx_length, UM7_packet* packet)
 
 void initIMU(void)
 {
-	initUART();		
-	getFirmwareVersion();
-	resetEKF();	
-	zeroGyros();
-	setMagReference();
-	setHomePosition();	
-	//factoryReset();
-	
 	//baud rate of the UM7 main serial port = 115200
-	uint8_t baud = 5 << 4;
 	//baud rate of the UM7 auxiliary serial port = 57600
-	baud += 4;
-	
-	uint8_t zero[4] = {0, 0, 0, 0};
+	uint8_t baud = 4 + (5 << 4);	
+	uint8_t com_settings[4] = {baud, 0, 1, 0};	
 	uint8_t all_proc[4] = {0, 0, 0, 255};
-	uint8_t com_settings[4] = {baud, 0, 1, 0};
-	//uint8_t position[4] = {0, 0, 255, 0};
-	//uint8_t health[4] = {0, 6, 0, 0};
+	uint8_t health[4] = {0, 6, 0, 0};
+	//uint8_t position[4] = {0, 0, 255, 0};	
 	
-	writeRegister(CREG_COM_SETTINGS, 4, com_settings);	// baud rates, auto transmission
-	writeRegister(CREG_COM_RATES1, 4, zero);			// raw gyro, accel and mag rate	
-	writeRegister(CREG_COM_RATES2, 4, zero);			// temp rate and all raw data rate		
-	writeRegister(CREG_COM_RATES3, 4, zero);			// proc accel, gyro, mag rate		
-	writeRegister(CREG_COM_RATES4, 4, all_proc);		// all proc data rate	
-	writeRegister(CREG_COM_RATES5, 4, zero);			// quart, euler, position, velocity rate
-	//writeRegister(CREG_COM_RATES6, 4, health);			// heartbeat rate
-}
-
-void initUART(void)
-{
-	releaseConnection();
-	
-	uart_fd = open("/dev/ttyPS1", O_RDWR | O_NOCTTY | O_NDELAY);
-
-	if(uart_fd == -1)
-	{
-		cprint("[!!] ", BRIGHT, RED);
-		fprintf(stderr, "Failed to init UART.\n");
-		exit(EXIT_FAILURE);
-	}
-	
-	struct termios settings;
-	tcgetattr(uart_fd, &settings);
-
-	/*  CONFIGURE THE UART
-	*  The flags (defined in /usr/include/termios.h - see http://pubs.opengroup.org/onlinepubs/007908799/xsh/termios.h.html):
-
-	*	Baud rate:- B1200, B2400, B4800, B9600, B19200,
-	*	B38400, B57600, B115200, B230400, B460800, B500000,
-	*	B576000, B921600, B1000000, B1152000, B1500000,
-	*	B2000000, B2500000, B3000000, B3500000, B4000000
-	*	CSIZE:- CS5, CS6, CS7, CS8
-	*	CLOCAL - Ignore modem status lines
-	* 	CREAD - Enable receiver
-	*	IGNPAR = Ignore characters with parity errors
-	*	ICRNL - Map CR to NL on input (Use for ASCII comms
-	*	where you want to auto correct end of line characters
-	*	- don't us e for bianry comms!)
-	*	PARENB - Parity enable
-	*	PARODD - Odd parity (else even) */
-
-	/* Set baud rate to 115200 */
-	speed_t baud_rate = B115200;
-
-	/* Baud rate functions
-	* cfsetospeed - Set output speed
-	* cfsetispeed - Set input speed
-	* cfsetspeed  - Set both output and input speed */
-
-	cfsetspeed(&settings, baud_rate);
-
-	settings.c_cflag &= ~PARENB; /* no parity */
-	settings.c_cflag &= ~CSTOPB; /* 1 stop bit */
-	settings.c_cflag &= ~CSIZE;
-	settings.c_cflag |= CS8 | CLOCAL; /* 8 bits */
-	settings.c_lflag = ICANON; /* canonical mode */
-	settings.c_oflag &= ~OPOST; /* raw output */
-
-	/* Setting attributes */
-	tcflush(uart_fd, TCIFLUSH);
-	tcsetattr(uart_fd, TCSANOW, &settings);
-	
-	cprint("[OK] ", BRIGHT, GREEN);
-	printf("UART Initialised.\n");
-}
-
-int rxPacket(int size)
-{
-	tcflush(uart_fd, TCIFLUSH); 
-	
-	// don't block serial read 
-	fcntl(uart_fd, F_SETFL, FNDELAY); 
-	
-	unsigned char rx_buffer[size];
-  
-	while(1)
-	{
-		if(uart_fd == -1)
-		{
-			cprint("[!!] ", BRIGHT, RED);
-			printf("UART has not been initialized.\n");
-			return -1;
-		}
-		
-		// perform uart read
-		int rx_length = read(uart_fd, (void*)rx_buffer, size);
-		
-		if (rx_length == -1)
-		{
-			//printf("No UART data available yet, check again.\n");
-			if(errno == EAGAIN)
-			{
-				// an operation that would block was attempted on an object that has non-blocking mode selected.
-				//printf("UART read blocked, try again.\n");
-				continue;
-			} 
-			else
-			{
-				printf("Error reading from UART.\n");
-				return -1;
-			}
-		  
-		}
-		else if (rx_length == size)
-		{	
-			if(parseSerialData(rx_buffer, rx_length, &global_packet) == 0)
-			{
-				//printf("All good.\n");
-				return 0; 
-			}
-			else
-			{
-				//printf("No useable packet received.\n");
-				return -2; 		
-			}		
-		}
-	}  
+	writeRegister(CREG_COM_SETTINGS, 4, com_settings);		// baud rates, auto transmission
+	writeRegister(CREG_COM_RATES1, 4, zero_buffer);			// raw gyro, accel and mag rate	
+	writeRegister(CREG_COM_RATES2, 4, zero_buffer);			// temp rate and all raw data rate		
+	writeRegister(CREG_COM_RATES3, 4, zero_buffer);			// proc accel, gyro, mag rate		
+	writeRegister(CREG_COM_RATES4, 4, all_proc);			// all proc data rate	
+	writeRegister(CREG_COM_RATES5, 4, zero_buffer);			// quart, euler, position, velocity rate
+	writeRegister(CREG_COM_RATES6, 4, health);				// heartbeat rate
 }
 
 
-int txPacket(UM7_packet* packet)
+int txPacket(packet* tx_packet)
 {  
-	/* Write some sample data into UART */
-	/* ----- TX BYTES ----- */
-	int msg_len = packet->n_data_bytes + 7;
+	/*int msg_len = tx_packet->n_data_bytes + 7;
 
 	int count = 0;
 	char tx_buffer[msg_len+1];
@@ -287,58 +162,75 @@ int txPacket(UM7_packet* packet)
 	tx_buffer[0] = 's';
 	tx_buffer[1] = 'n';
 	tx_buffer[2] = 'p';
-	tx_buffer[3] = packet->packet_type;
-	tx_buffer[4] = packet->address;
+	tx_buffer[3] = tx_packet->packet_type;
+	tx_buffer[4] = tx_packet->address;
 	
 	//Calculate checksum and add data to buffer
 	uint16_t checksum = 's' + 'n' + 'p' + tx_buffer[3] + tx_buffer[4];
 	int i = 0;
 	
-	for (i = 0; i < packet->n_data_bytes;i++)
+	for (i = 0; i < tx_packet->n_data_bytes;i++)
 	{
-		tx_buffer[5 + i] = packet->data[i];
-		checksum += packet->data[i];
+		tx_buffer[5 + i] = tx_packet->data[i];
+		checksum += tx_packet->data[i];
 	}
 	
 	tx_buffer[5 + i] = checksum >> 8;
 	tx_buffer[6 + i] = checksum & 0xff;
 	tx_buffer[msg_len++] = 0x0a; //New line numerical value
 
-	if(uart_fd != -1)
-	{
-		count = write(uart_fd, &tx_buffer, (msg_len)); //Transmit
-	}
+	count = write(uart_fd, &tx_buffer, (msg_len)); //Transmit
 	
 	if(count < 0)
 	{
 		cprint("[!!] ", BRIGHT, RED);
 		fprintf(stderr, "UART TX error.\n");
 		return -1;
-	}
+	}*/
 	
 	return 0;
 }
 
-
-int releaseConnection(void)
+//searches for the first valid paket within 'size' samples of the UART buffer
+int rxPacket(packet* tx_packet, int size)
 {
-	tcflush(uart_fd, TCIFLUSH);
-	close(uart_fd);
+	if(parseUART(getUART(size), size, tx_packet) == 0)
+	{
+		return 1; 
+	}
+	else
+	{
+		//printf("No useable packet received.\n");
+		return -1; 		
+	}		
+}
 
+
+//saves the data within the provided packet
+int svPacket(packet* sv_packet)
+{
+	/*if ((sv_packet.address == DREG_ALL_PROC) && (sv_packet.packet_type &= PT_IS_BATCH))
+	{		
+		for (int i = 0; i < 12; i++)
+		{
+			float data = bit32ToFloat(bit8ArrayToBit32(&global_packet.data[4*i]));
+			fwrite(&data, sizeof(float), 1, imuFile);
+		}					
+	}*/
 	return 0;
 }
 
 
 void getFirmwareVersion(void)
 {
-	writeRegister(GET_FW_REVISION, 0, zero_buffer);
-	checkCommandSuccess("Check Firmware");
+	packet rx_packet = writeRegister(GET_FW_REVISION, 0, zero_buffer);
+	checkCommandSuccess(&rx_packet, "Check Firmware");
 	
 	char FWrev[5];
-	FWrev[0] = global_packet.data[0];
-	FWrev[1] = global_packet.data[1];
-	FWrev[2] = global_packet.data[2];
-	FWrev[3] = global_packet.data[3];
+	FWrev[0] = rx_packet.data[0];
+	FWrev[1] = rx_packet.data[1];
+	FWrev[2] = rx_packet.data[2];
+	FWrev[3] = rx_packet.data[3];
 	FWrev[4] = '\0'; //Null-terminate string
 
 	cprint("[**] ", BRIGHT, CYAN);
@@ -348,67 +240,67 @@ void getFirmwareVersion(void)
 
 void flashCommit(void)
 {
-	writeRegister(FLASH_COMMIT, 0, zero_buffer);	
-	checkCommandSuccess("Flash Commit");
+	packet rx_packet = writeRegister(FLASH_COMMIT, 0, zero_buffer);	
+	checkCommandSuccess(&rx_packet, "Flash Commit");
 }
 
 
 void factoryReset(void)
 {
-	writeRegister(RESET_TO_FACTORY, 0, zero_buffer);
-	checkCommandSuccess("Factory Reset");
+	packet rx_packet = writeRegister(RESET_TO_FACTORY, 0, zero_buffer);
+	checkCommandSuccess(&rx_packet, "Factory Reset");
 }
 
 
 void zeroGyros(void)
 {
-	writeRegister(ZERO_GYROS, 0, zero_buffer);
-	checkCommandSuccess("Zero Gyros");
+	packet rx_packet = writeRegister(ZERO_GYROS, 0, zero_buffer);
+	checkCommandSuccess(&rx_packet, "Zero Gyros");
 }
 
 
 void setHomePosition(void)
 {	
-	writeRegister(SET_HOME_POSITION, 0, zero_buffer);	
-	checkCommandSuccess("Set GPS Home");
+	packet rx_packet = writeRegister(SET_HOME_POSITION, 0, zero_buffer);	
+	checkCommandSuccess(&rx_packet, "Set GPS Home");
 }
 
 
 void setMagReference(void)
 {
-	writeRegister(SET_MAG_REFERENCE, 0, zero_buffer);
-	checkCommandSuccess("Set Mag Reference");
+	packet rx_packet = writeRegister(SET_MAG_REFERENCE, 0, zero_buffer);
+	checkCommandSuccess(&rx_packet, "Set Mag Reference");
 }
 
 
 void resetEKF(void)
 {
-	writeRegister(RESET_EKF, 0, zero_buffer);
-	checkCommandSuccess("Reset EKF");
+	packet rx_packet = writeRegister(RESET_EKF, 0, zero_buffer);
+	checkCommandSuccess(&rx_packet, "Reset EKF");
 }
 
 
-void writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
+packet writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 {
-	UM7_packet packet;		
+	packet tx_packet, rx_packet;	
 
-	packet.address = address;
-	packet.packet_type = 0x00;
-	packet.n_data_bytes = n_data_bytes;	
+	tx_packet.address = address;
+	tx_packet.packet_type = 0x00;
+	tx_packet.n_data_bytes = n_data_bytes;	
 	
 	if (n_data_bytes != 0)
 	{
 		// packet contains data
-		packet.packet_type |= PT_HAS_DATA; 					
+		tx_packet.packet_type |= PT_HAS_DATA; 					
 	}	
 	
 	// populate packet data
 	for (int i = 0; i < n_data_bytes; i++)
 	{
-		packet.data[i] = data[i];
+		tx_packet.data[i] = data[i];
 	}		
 
-	if (txPacket(&packet) < 0)
+	if (txPacket(&tx_packet) < 0)
 	{
 		printf("UART baud rate write error\n");	
 	}	
@@ -416,9 +308,9 @@ void writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 	int attempt_n = 0;	
 		
 	//If reveived data was bad or wrong address, repeat transmission and reception
-	while ((rxPacket(20) < 0) || (global_packet.address != packet.address))
+	while ((rxPacket(&rx_packet, 20) < 0) || (rx_packet.address != tx_packet.address))
 	{
-		if (txPacket(&packet) < 0)
+		if (txPacket(&tx_packet) < 0)
 		{
 			printf("UART baud rate write error\n");	
 		}	
@@ -426,16 +318,18 @@ void writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 		if (attempt_n++ == 100)
 		{
 			cprint("[!!] ", BRIGHT, RED);
-			printf("No response from UM7_R%i after 100 attempts.\n", packet.address);
+			printf("No response from UM7_R%i after 100 attempts.\n", tx_packet.address);
 			break;
 		}
 	}	
+	
+	return rx_packet;
 }
 
 
-void checkCommandSuccess(char* command_name)
+void checkCommandSuccess(packet* check_packet, char* command_name)
 {
-	if (global_packet.packet_type & PT_CF)
+	if (check_packet->packet_type & PT_CF)
 	{
 		cprint("[!!] ", BRIGHT, RED);
 		printf("%s Error.\n", command_name);
@@ -451,65 +345,28 @@ void checkCommandSuccess(char* command_name)
 
 void readRegister(uint8_t address)
 {
-	writeRegister(address, 0, zero_buffer);
-	//printf("IMU Register %i: %f\n", address, bit32ToFloat(bit8ArrayToBit32(global_packet.data)));	
+	packet rx_packet = writeRegister(address, 0, zero_buffer);
+	//printf("IMU Register %i: %f\n", address, bit32ToFloat(bit8ArrayToBit32(rx_packet.data)));	
 	
-	if ((global_packet.address == address) && (global_packet.packet_type &= PT_IS_BATCH))
+	if ((rx_packet.address == address) && (rx_packet.packet_type &= PT_IS_BATCH))
 	{				
 		system("clear\n");
-		printf("UM7_R%i: %f\n", global_packet.address+0, bit32ToFloat(bit8ArrayToBit32(&global_packet.data[0])));
-		printf("UM7_R%i: %f\n", global_packet.address+1, bit32ToFloat(bit8ArrayToBit32(&global_packet.data[4])));
-		printf("UM7_R%i: %f\n", global_packet.address+2, bit32ToFloat(bit8ArrayToBit32(&global_packet.data[8])));
-		printf("UM7_R%i: %f\n", global_packet.address+3, bit32ToFloat(bit8ArrayToBit32(&global_packet.data[12])));
+		printf("UM7_R%i: %f\n", rx_packet.address+0, bit32ToFloat(bit8ArrayToBit32(&rx_packet.data[0])));
+		printf("UM7_R%i: %f\n", rx_packet.address+1, bit32ToFloat(bit8ArrayToBit32(&rx_packet.data[4])));
+		printf("UM7_R%i: %f\n", rx_packet.address+2, bit32ToFloat(bit8ArrayToBit32(&rx_packet.data[8])));
+		printf("UM7_R%i: %f\n", rx_packet.address+3, bit32ToFloat(bit8ArrayToBit32(&rx_packet.data[12])));
 	}
-	else if (global_packet.address == address)
+	else if (rx_packet.address == address)
 	{
-		printf("UM7_R%i: ", global_packet.address);
+		printf("UM7_R%i: ", rx_packet.address);
 		for (int i = 0; i < 4; i++)
-			printf(" %i", global_packet.data[i]);
+			printf(" %i", rx_packet.data[i]);
 		printf("\n");
 	}	
 }
 
 
-float bit32ToFloat(uint32_t bit32)
-{
-	//https://en.wikipedia.org/wiki/Single-precision_floating-point_format	
-	
-	int sign = 1;
-	float fraction = 1;	
-	int exponent = -127;		
-	
-	float singleFloat = 0;		
-	
-	if (bit32 & (uint32_t)(1 << 31))
-	{
-		sign = -1;
-	}
-	
-	for (int i = 1; i < 24; i++)
-	{
-		if (bit32 & (uint32_t)(1 << (23 - i)))
-		{
-			fraction += pow(2, -i);
-		}
-	}
-	
-	for (int i = 0; i < 8; i++)
-	{
-		if (bit32 & (uint32_t)(1 << (23 + i)))
-		{
-			exponent += pow(2, i);
-		}
-	}		
-	
-	singleFloat = sign*fraction*pow(2, exponent);
-	
-	return singleFloat;
-}
-
-
-void procHealth(UM7_packet* healthPacket)
+void procHealth(packet* healthPacket)
 {
 	uint32_t healthBit32 = bit8ArrayToBit32(healthPacket->data);
 	
@@ -580,60 +437,7 @@ void procHealth(UM7_packet* healthPacket)
 }
 
 
-uint32_t bit8ArrayToBit32(uint8_t *data)
-{
-	uint32_t bit32 = 0;
-	
-	bit32 = (uint32_t)(data[3] << 0);
-	bit32 += (uint32_t)(data[2] << 8);
-	bit32 += (uint32_t)(data[1] << 16);
-	bit32 += (uint32_t)(data[0] << 24);
-	
-	return bit32;
-}
 
-
-uint8_t* getUARTbuffer(int size)
-{
-	// don't block serial read 
-	fcntl(uart_fd, F_SETFL, FNDELAY); 
-	
-	uint8_t* uart_rx_buffer = (uint8_t *)malloc(size*sizeof(uint8_t));
-  
-	while(1)
-	{
-		if (uart_fd == -1)
-		{
-			cprint("[!!] ", BRIGHT, RED);
-			printf("UART has not been initialized.\n");
-		}
-		
-		// perform uart read
-		int rx_length = read(uart_fd, (void*)uart_rx_buffer, size);
-		
-		if (rx_length == -1)
-		{
-			//printf("No UART data available yet, check again.\n");
-			if(errno == EAGAIN)
-			{
-				// an operation that would block was attempted on an object that has non-blocking mode selected.
-				//printf("UART read blocked, try again.\n");
-				continue;
-			} 
-			else
-			{
-				printf("Error reading from UART.\n");
-			}
-		  
-		}
-		else if (rx_length == size)
-		{	
-			return uart_rx_buffer;
-		}
-	}  
-	
-	tcflush(uart_fd, TCIFLUSH); 
-}
 
 
 

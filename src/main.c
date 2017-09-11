@@ -7,22 +7,24 @@
 #include "rp.h"
 #include "colour.h"
 #include "imu.h"
+#include "binary.h"
+#include "uart.h"
 
 void splash(void);
 void help(void);
-void parse_uart(void);
+void check_heartbeat(void);
+void initRP(void);
 
-//global UM7 receive packet
-extern UM7_packet global_packet;
+extern heartbeat beat;
 
-//global experiment active flag
+//global flags
 int is_experiment_active = false;
+int is_debug_mode = false;
 
 int main(int argc, char *argv[])
 {
 	pthread_t imu_thread;
-	int opt;
-	int is_debug_mode;
+	int opt;	
 	
 	//retrieve command-line options
     while ((opt = getopt(argc, argv, "dh")) != -1)
@@ -30,7 +32,7 @@ int main(int argc, char *argv[])
         switch (opt)
         {
 			case 'd':
-				is_debug_mode = 1;
+				is_debug_mode = true;
 				break; 
 			case 'h':
 				help();
@@ -41,32 +43,24 @@ int main(int argc, char *argv[])
     }	
 	
 	splash();
-	
-	if (is_debug_mode)
-	{
-		cprint("[OK] ", BRIGHT, GREEN);
-		printf("Debug mode enabled.\n");
-	}
-	else
-	{
-		cprint("[!!] ", BRIGHT, RED);
-		printf("Debug mode disabled.\n");
-	}
-
-	//initialize RP API
-	if (rp_Init() != RP_OK) 
-	{
-		cprint("[!!] ", BRIGHT, RED);
-		printf("Red Pitaya API initialization failed!\n");
-		exit(EXIT_FAILURE);
-	}
-
-	//initialise IMU and configure update rates
+	initRP();	
+	initUART();		
 	initIMU();
+	getFirmwareVersion();
+	
+	while(beat.gps_fail)
+	{
+		
+	}
+	
+	resetEKF();	
+	zeroGyros();
+	setMagReference();
+	setHomePosition();	
 	
 	is_experiment_active = true;
 	
-	if (pthread_create(&imu_thread, NULL, (void*)parse_uart, NULL))
+	if (pthread_create(&imu_thread, NULL, (void*)check_heartbeat, NULL))
 	{
 		cprint("[!!] ", BRIGHT, RED);
 		printf("Error launching imu thread.\n");
@@ -84,13 +78,14 @@ int main(int argc, char *argv[])
 	//join all threads
 	pthread_join(imu_thread, NULL);
 
+	dnitUART();
 	rp_Release();
 	
 	return EXIT_SUCCESS;
 }
 
 
-void parse_uart(void)
+void check_heartbeat(void)
 {
 	FILE *imuFile;
 	
@@ -105,32 +100,7 @@ void parse_uart(void)
 	//while experiment is active
 	while (is_experiment_active)
 	{	
-		//process UART buffer and check for valid packets
-		if (rxPacket(50) == 0)
-		{		
-			//process valid packet data and write to file
-			if ((global_packet.address == DREG_ALL_PROC) && (global_packet.packet_type &= PT_IS_BATCH))
-			{		
-				for (int i = 0; i < 12; i++)
-				{
-					float data = bit32ToFloat(bit8ArrayToBit32(&global_packet.data[4*i]));
-					fwrite(&data, sizeof(float), 1, imuFile);
-				}					
-			}
-			
-			if (global_packet.address == DREG_HEALTH)
-			{
-				procHealth(&global_packet);
-			}
-				
-			//printf("reg_address: %i\n", global_packet.address);
-
-		}	
-		
-		//readRegister(DREG_GPS_LATITUDE);
-		
-		/*fwrite(getUARTbuffer(200), sizeof(uint8_t), 200, imuFile);		
-		usleep(0.01e6);*/
+		saveUART(200);
 	}
 	
 	fclose(imuFile);
@@ -142,6 +112,17 @@ void splash(void)
 	system("clear\n");
 	printf("UM7-RP\n");
 	printf("------\n");	
+	
+	if (is_debug_mode)
+	{
+		cprint("[OK] ", BRIGHT, GREEN);
+		printf("Debug mode enabled.\n");
+	}
+	else
+	{
+		cprint("[!!] ", BRIGHT, RED);
+		printf("Debug mode disabled.\n");
+	}
 }
 
 
@@ -153,20 +134,14 @@ void help(void)
 	exit(EXIT_SUCCESS);	
 }
 
-/*
-system("clear\n");
-printf("GYRO_X: \t%f\n", bit32ToFloat(bit8ArrayToBit32(&global_packet.data[0])));
-printf("GYRO_Y: \t%f\n", bit32ToFloat(bit8ArrayToBit32(&global_packet.data[4])));
-printf("GYRO_Z: \t%f\n", bit32ToFloat(bit8ArrayToBit32(&global_packet.data[8])));
-printf("GYRO_TIME: \t%f\n", bit32ToFloat(bit8ArrayToBit32(&global_packet.data[12])));
-printf("\n");				
-printf("ACCL_X: \t%f\n", bit32ToFloat(bit8ArrayToBit32(&global_packet.data[16])));
-printf("ACCL_Y: \t%f\n", bit32ToFloat(bit8ArrayToBit32(&global_packet.data[20])));
-printf("ACCL_Z: \t%f\n", bit32ToFloat(bit8ArrayToBit32(&global_packet.data[24])));
-printf("ACCL_TIME: \t%f\n", bit32ToFloat(bit8ArrayToBit32(&global_packet.data[28])));
-printf("\n");				
-printf("MAGN_X: \t%f\n", bit32ToFloat(bit8ArrayToBit32(&global_packet.data[32])));
-printf("MAGN_Y: \t%f\n", bit32ToFloat(bit8ArrayToBit32(&global_packet.data[36])));
-printf("MAGN_Z: \t%f\n", bit32ToFloat(bit8ArrayToBit32(&global_packet.data[40])));
-printf("MAGN_TIME: \t%f\n", bit32ToFloat(bit8ArrayToBit32(&global_packet.data[44])));
-*/
+void initRP(void)
+{
+	//initialize RP API
+	if (rp_Init() != RP_OK) 
+	{
+		cprint("[!!] ", BRIGHT, RED);
+		printf("Red Pitaya API initialization failed!\n");
+		exit(EXIT_FAILURE);
+	}
+}
+
