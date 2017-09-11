@@ -106,7 +106,7 @@ void setHomePosition(void);
 void setMagReference(void);
 void resetEKF(void);
 
-int rxPacket(packet* tx_packet, int size);
+int rxPacket(packet* rsx_packet, int size);
 int txPacket(packet* tx_packet);
 int svPacket(packet* sv_packet);
 
@@ -116,7 +116,7 @@ int writeRegister(packet* rx_packet, uint8_t address, uint8_t n_data_bytes, uint
 
 void checkHealth(int size);
 
-uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, packet* raw_packet, int address);
+uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, packet* ext_packet, int address);
 
 
 #endif

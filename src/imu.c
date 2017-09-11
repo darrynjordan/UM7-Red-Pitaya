@@ -9,7 +9,7 @@ uint8_t zero_buffer[4] = {0, 0, 0, 0};
 heartbeat beat;
 
 // Parse the serial data obtained through the UART interface and fit to a general packet structure
-uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, packet* raw_packet, int address)
+uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, packet* ext_packet, int address)
 {
 	uint8_t index;
 	// Make sure that the data buffer provided is long enough to contain a full packet
@@ -43,7 +43,7 @@ uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, packet* raw_packet, int a
 	// If we get here, a packet header was found. Now check to see if we have enough room
 	// left in the buffer to contain a full packet. Note that at this point, the variable 'packet_index'
 	// contains the location of the 's' character in the buffer (the first byte in the header)
-	if( (rx_length - packet_index) < 7 )
+	if ((rx_length - packet_index) < 7)
 	{
 		//printf("not enough room after 's' for a full packet\n");
 		return 3;
@@ -94,9 +94,9 @@ uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, packet* raw_packet, int a
 	// If we get here, we know that we have a full packet in the buffer. All that remains is to pull
 	// out the data and make sure the checksum is good.
 	// Start by extracting all the data
-	raw_packet->address = rx_data[packet_index + 4];
+	ext_packet->address = rx_data[packet_index + 4];
 	
-	if ((address != -1) && (address != raw_packet->address))
+	if ((address != -1) && (address != ext_packet->address))
 	{
 		// Address does not match the search address! 
 		return 4;
@@ -104,18 +104,18 @@ uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, packet* raw_packet, int a
 	
 	//printf("packet address = %i\n", (int)(packet->Address));
 	
-	raw_packet->packet_type = PT;
+	ext_packet->packet_type = PT;
 
 	// Get the data bytes and compute the checksum all in one step
-	raw_packet->n_data_bytes = data_length;
-	uint16_t computed_checksum = 's' + 'n' + 'p' + raw_packet->packet_type + raw_packet->address;	
+	ext_packet->n_data_bytes = data_length;
+	uint16_t computed_checksum = 's' + 'n' + 'p' + ext_packet->packet_type + ext_packet->address;	
 	
 	for( index = 0; index < data_length; index++ )
     {
 		// Copy the data into the packet structure's data array
-		raw_packet->data[index] = rx_data[packet_index + 5 + index];
+		ext_packet->data[index] = rx_data[packet_index + 5 + index];
 		// Add the new byte to the checksum
-		computed_checksum += raw_packet->data[index];		
+		computed_checksum += ext_packet->data[index];		
     }    
    
 	// Now see if our computed checksum matches the received checksum
@@ -124,14 +124,14 @@ uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, packet* raw_packet, int a
 
 	received_checksum |= rx_data[packet_index + 6 + data_length];
 	// Now check to see if they don't match
-	if( received_checksum != computed_checksum )
+	if (received_checksum != computed_checksum)
     {
 		//printf("checksum bad!\n");
 		return 5;
     }
     
     //printf("checksum good!\n");
-	raw_packet->checksum = computed_checksum;
+	ext_packet->checksum = computed_checksum;
 	// At this point, we've received a full packet with a good checksum. It is already
 	// fully parsed and copied to the packet structure, so return 0 to indicate that a packet was
 	// processed.
@@ -150,7 +150,7 @@ void initIMU(void)
 	uint8_t health[4] = {0, 6, 0, 0};
 	//uint8_t position[4] = {0, 0, 255, 0};	
 	
-	writeRegister(&rx_packet, CREG_COM_SETTINGS, 4, com_settings);		// baud rates, auto transmission
+	writeRegister(&rx_packet, CREG_COM_SETTINGS, 4, com_settings);		// baud rates, auto transmission	
 	writeRegister(&rx_packet, CREG_COM_RATES1, 4, zero_buffer);			// raw gyro, accel and mag rate	
 	writeRegister(&rx_packet, CREG_COM_RATES2, 4, zero_buffer);			// temp rate and all raw data rate		
 	writeRegister(&rx_packet, CREG_COM_RATES3, 4, zero_buffer);			// proc accel, gyro, mag rate		
@@ -165,7 +165,7 @@ int txPacket(packet* tx_packet)
 	int msg_len = tx_packet->n_data_bytes + 7;
 
 	int count = 0;
-	char tx_buffer[msg_len+1];
+	char tx_buffer[msg_len + 1];
 	//Add header to buffer
 	tx_buffer[0] = 's';
 	tx_buffer[1] = 'n';
@@ -191,8 +191,6 @@ int txPacket(packet* tx_packet)
 	
 	if(count < 0)
 	{
-		cprint("[!!] ", BRIGHT, RED);
-		fprintf(stderr, "UART TX error.\n");
 		return -1;
 	}
 	
@@ -200,9 +198,9 @@ int txPacket(packet* tx_packet)
 }
 
 //searches for the first valid paket within 'size' samples of the UART buffer
-int rxPacket(packet* tx_packet, int size)
+int rxPacket(packet* rx_packet, int size)
 {
-	if(parseUART(getUART(size), size, tx_packet, -1) == 0)
+	if(parseUART(getUART(size), size, rx_packet, -1) == 0)
 	{
 		return 1; 
 	}
@@ -335,32 +333,35 @@ int writeRegister(packet* rx_packet, uint8_t address, uint8_t n_data_bytes, uint
 	{
 		tx_packet.data[i] = data[i];
 	}		
-
-	if (txPacket(&tx_packet) < 0)
-	{
-		printf("UART baud rate write error\n");	
-	}	
 		
 	int attempt_n = 0;	
 		
 	//If reveived data was bad or wrong address, repeat transmission and reception
-	while ((rxPacket(rx_packet, 20) < 0) || (rx_packet->address != tx_packet.address))
+	while (1)
 	{
-		if (txPacket(&tx_packet) < 0)
+		if (!txPacket(&tx_packet))
 		{
-			printf("UART baud rate write error\n");	
+			cprint("[!!] ", BRIGHT, RED);
+			fprintf(stderr, "UART TX error.\n");	
 		}	
+		
+		if (parseUART(getUART(20), 20, rx_packet, address))
+		{
+			printf("UM7_R%i: ", rx_packet->address);
+			for (int i = 0; i < 4; i++)
+				printf(" %i", rx_packet->data[i]);
+			printf("\n");
 			
+			return 1;
+		}
+		
 		if (attempt_n++ == 100)
 		{
 			cprint("[!!] ", BRIGHT, RED);
 			printf("No response from UM7_R%i after 100 attempts.\n", tx_packet.address);
 			return -1;
-			break;
 		}
 	}	
-	
-	return 1;
 }
 
 

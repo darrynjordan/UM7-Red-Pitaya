@@ -3,12 +3,15 @@
 // UART file discriptor
 int uart_fd = -1; 
 
+// UART buffer
+uint8_t* uart_buffer;
+
 uint8_t* getUART(int size)
 {
 	// don't block serial read 
 	fcntl(uart_fd, F_SETFL, FNDELAY); 
 	
-	uint8_t* uart_buffer = (uint8_t *)malloc(size*sizeof(uint8_t));
+	uart_buffer = (uint8_t*)malloc(size*sizeof(uint8_t));
   
 	while(1)
 	{
