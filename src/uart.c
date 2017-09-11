@@ -110,7 +110,7 @@ int dnitUART(void)
 	tcflush(uart_fd, TCIFLUSH);
 	close(uart_fd);
 
-	return 0;
+	return 1;
 }
 
 

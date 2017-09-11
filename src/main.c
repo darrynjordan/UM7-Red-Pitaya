@@ -46,7 +46,13 @@ int main(int argc, char *argv[])
 	initRP();	
 	initUART();		
 	initIMU();
+	
+	usleep(1e6);
+	
 	getFirmwareVersion();	
+	resetEKF();	
+	zeroGyros();
+	setMagReference();
 	
 	checkHealth(50);
 	
@@ -55,9 +61,7 @@ int main(int argc, char *argv[])
 		checkHealth(50);
 	}
 	
-	resetEKF();	
-	zeroGyros();
-	setMagReference();
+
 	setHomePosition();	
 	
 	is_experiment_active = true;

@@ -140,6 +140,8 @@ uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, packet* raw_packet, int a
 
 void initIMU(void)
 {
+	packet rx_packet;
+	
 	//baud rate of the UM7 main serial port = 115200
 	//baud rate of the UM7 auxiliary serial port = 57600
 	uint8_t baud = 4 + (5 << 4);	
@@ -148,13 +150,13 @@ void initIMU(void)
 	uint8_t health[4] = {0, 6, 0, 0};
 	//uint8_t position[4] = {0, 0, 255, 0};	
 	
-	writeRegister(CREG_COM_SETTINGS, 4, com_settings);		// baud rates, auto transmission
-	writeRegister(CREG_COM_RATES1, 4, zero_buffer);			// raw gyro, accel and mag rate	
-	writeRegister(CREG_COM_RATES2, 4, zero_buffer);			// temp rate and all raw data rate		
-	writeRegister(CREG_COM_RATES3, 4, zero_buffer);			// proc accel, gyro, mag rate		
-	writeRegister(CREG_COM_RATES4, 4, all_proc);			// all proc data rate	
-	writeRegister(CREG_COM_RATES5, 4, zero_buffer);			// quart, euler, position, velocity rate
-	writeRegister(CREG_COM_RATES6, 4, health);				// heartbeat rate
+	writeRegister(&rx_packet, CREG_COM_SETTINGS, 4, com_settings);		// baud rates, auto transmission
+	writeRegister(&rx_packet, CREG_COM_RATES1, 4, zero_buffer);			// raw gyro, accel and mag rate	
+	writeRegister(&rx_packet, CREG_COM_RATES2, 4, zero_buffer);			// temp rate and all raw data rate		
+	writeRegister(&rx_packet, CREG_COM_RATES3, 4, zero_buffer);			// proc accel, gyro, mag rate		
+	writeRegister(&rx_packet, CREG_COM_RATES4, 4, all_proc);			// all proc data rate	
+	writeRegister(&rx_packet, CREG_COM_RATES5, 4, zero_buffer);			// quart, euler, position, velocity rate
+	writeRegister(&rx_packet, CREG_COM_RATES6, 4, health);				// heartbeat rate
 }
 
 
@@ -229,8 +231,12 @@ int svPacket(packet* sv_packet)
 
 void getFirmwareVersion(void)
 {
-	packet rx_packet = writeRegister(GET_FW_REVISION, 0, zero_buffer);
-	checkCommandSuccess(&rx_packet, "Check Firmware");
+	packet rx_packet;
+
+	if (writeRegister(&rx_packet, GET_FW_REVISION, 0, zero_buffer))
+	{
+		checkCommandSuccess(&rx_packet, "Check Firmware");
+	}
 	
 	char FWrev[5];
 	FWrev[0] = rx_packet.data[0];
@@ -246,49 +252,73 @@ void getFirmwareVersion(void)
 
 void flashCommit(void)
 {
-	packet rx_packet = writeRegister(FLASH_COMMIT, 0, zero_buffer);	
-	checkCommandSuccess(&rx_packet, "Flash Commit");
+	packet rx_packet;
+	
+	if (writeRegister(&rx_packet, FLASH_COMMIT, 0, zero_buffer))
+	{	
+		checkCommandSuccess(&rx_packet, "Flash Commit");
+	}
 }
 
 
 void factoryReset(void)
 {
-	packet rx_packet = writeRegister(RESET_TO_FACTORY, 0, zero_buffer);
-	checkCommandSuccess(&rx_packet, "Factory Reset");
+	packet rx_packet;
+	
+	if (writeRegister(&rx_packet, RESET_TO_FACTORY, 0, zero_buffer))
+	{
+		checkCommandSuccess(&rx_packet, "Factory Reset");
+	}
 }
 
 
 void zeroGyros(void)
 {
-	packet rx_packet = writeRegister(ZERO_GYROS, 0, zero_buffer);
-	checkCommandSuccess(&rx_packet, "Zero Gyros");
+	packet rx_packet;
+	
+	if (writeRegister(&rx_packet, ZERO_GYROS, 0, zero_buffer))
+	{
+		checkCommandSuccess(&rx_packet, "Zero Gyros");
+	}
 }
 
 
 void setHomePosition(void)
 {	
-	packet rx_packet = writeRegister(SET_HOME_POSITION, 0, zero_buffer);	
-	checkCommandSuccess(&rx_packet, "Set GPS Home");
+	packet rx_packet;
+	
+	if (writeRegister(&rx_packet, SET_HOME_POSITION, 0, zero_buffer))
+	{	
+		checkCommandSuccess(&rx_packet, "Set GPS Home");
+	}
 }
 
 
 void setMagReference(void)
 {
-	packet rx_packet = writeRegister(SET_MAG_REFERENCE, 0, zero_buffer);
-	checkCommandSuccess(&rx_packet, "Set Mag Reference");
+	packet rx_packet;
+	
+	if(writeRegister(&rx_packet, SET_MAG_REFERENCE, 0, zero_buffer))
+	{
+		checkCommandSuccess(&rx_packet, "Set Mag Reference");
+	}
 }
 
 
 void resetEKF(void)
 {
-	packet rx_packet = writeRegister(RESET_EKF, 0, zero_buffer);
-	checkCommandSuccess(&rx_packet, "Reset EKF");
+	packet rx_packet;
+	
+	if(writeRegister(&rx_packet, RESET_EKF, 0, zero_buffer))
+	{
+		checkCommandSuccess(&rx_packet, "Reset EKF");
+	}
 }
 
 
-packet writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
+int writeRegister(packet* rx_packet, uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 {
-	packet tx_packet, rx_packet;	
+	packet tx_packet;	
 
 	tx_packet.address = address;
 	tx_packet.packet_type = 0x00;
@@ -314,7 +344,7 @@ packet writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 	int attempt_n = 0;	
 		
 	//If reveived data was bad or wrong address, repeat transmission and reception
-	while ((rxPacket(&rx_packet, 20) < 0) || (rx_packet.address != tx_packet.address))
+	while ((rxPacket(rx_packet, 20) < 0) || (rx_packet->address != tx_packet.address))
 	{
 		if (txPacket(&tx_packet) < 0)
 		{
@@ -325,11 +355,12 @@ packet writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 		{
 			cprint("[!!] ", BRIGHT, RED);
 			printf("No response from UM7_R%i after 100 attempts.\n", tx_packet.address);
+			return -1;
 			break;
 		}
 	}	
 	
-	return rx_packet;
+	return 1;
 }
 
 
@@ -351,7 +382,8 @@ void checkCommandSuccess(packet* check_packet, char* command_name)
 
 void readRegister(uint8_t address)
 {
-	packet rx_packet = writeRegister(address, 0, zero_buffer);
+	packet rx_packet; 
+	writeRegister(&rx_packet, address, 0, zero_buffer);
 	//printf("IMU Register %i: %f\n", address, bit32ToFloat(bit8ArrayToBit32(rx_packet.data)));	
 	
 	if ((rx_packet.address == address) && (rx_packet.packet_type &= PT_IS_BATCH))

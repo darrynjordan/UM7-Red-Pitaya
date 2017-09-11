@@ -112,7 +112,7 @@ int svPacket(packet* sv_packet);
 
 void checkCommandSuccess(packet* check_packet, char* command_name);
 void readRegister(uint8_t address);
-packet writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data);
+int writeRegister(packet* rx_packet, uint8_t address, uint8_t n_data_bytes, uint8_t *data);
 
 void checkHealth(int size);
 
