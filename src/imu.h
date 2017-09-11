@@ -114,9 +114,9 @@ void checkCommandSuccess(packet* check_packet, char* command_name);
 void readRegister(uint8_t address);
 packet writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data);
 
-void procHealth(packet* healthPacket);
+void checkHealth(int size);
 
-uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, packet* raw_packet, int address = -1);
+uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, packet* raw_packet, int address);
 
 
 #endif

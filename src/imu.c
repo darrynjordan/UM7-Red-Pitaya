@@ -9,7 +9,7 @@ uint8_t zero_buffer[4] = {0, 0, 0, 0};
 heartbeat beat;
 
 // Parse the serial data obtained through the UART interface and fit to a general packet structure
-uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, packet* raw_packet)
+uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, packet* raw_packet, int address)
 {
 	uint8_t index;
 	// Make sure that the data buffer provided is long enough to contain a full packet
@@ -96,6 +96,12 @@ uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, packet* raw_packet)
 	// Start by extracting all the data
 	raw_packet->address = rx_data[packet_index + 4];
 	
+	if ((address != -1) && (address != raw_packet->address))
+	{
+		// Address does not match the search address! 
+		return 4;
+	}
+	
 	//printf("packet address = %i\n", (int)(packet->Address));
 	
 	raw_packet->packet_type = PT;
@@ -121,7 +127,7 @@ uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, packet* raw_packet)
 	if( received_checksum != computed_checksum )
     {
 		//printf("checksum bad!\n");
-		return 4;
+		return 5;
     }
     
     //printf("checksum good!\n");
@@ -154,7 +160,7 @@ void initIMU(void)
 
 int txPacket(packet* tx_packet)
 {  
-	/*int msg_len = tx_packet->n_data_bytes + 7;
+	int msg_len = tx_packet->n_data_bytes + 7;
 
 	int count = 0;
 	char tx_buffer[msg_len+1];
@@ -186,15 +192,15 @@ int txPacket(packet* tx_packet)
 		cprint("[!!] ", BRIGHT, RED);
 		fprintf(stderr, "UART TX error.\n");
 		return -1;
-	}*/
+	}
 	
-	return 0;
+	return 1;
 }
 
 //searches for the first valid paket within 'size' samples of the UART buffer
 int rxPacket(packet* tx_packet, int size)
 {
-	if(parseUART(getUART(size), size, tx_packet) == 0)
+	if(parseUART(getUART(size), size, tx_packet, -1) == 0)
 	{
 		return 1; 
 	}
@@ -217,7 +223,7 @@ int svPacket(packet* sv_packet)
 			fwrite(&data, sizeof(float), 1, imuFile);
 		}					
 	}*/
-	return 0;
+	return 1;
 }
 
 
@@ -366,9 +372,14 @@ void readRegister(uint8_t address)
 }
 
 
-void procHealth(packet* healthPacket)
+void checkHealth(int size)
 {
-	uint32_t healthBit32 = bit8ArrayToBit32(healthPacket->data);
+	packet health_packet;
+	
+	//wait until valid health packet is received
+	while(parseUART(getUART(size), size, &health_packet, DREG_HEALTH) != 0);
+	
+	uint32_t healthBit32 = bit8ArrayToBit32(health_packet.data);
 	
 	if (healthBit32 & (uint32_t)(1 << 0)) 
 	{

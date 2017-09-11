@@ -42,7 +42,7 @@ uint8_t* getUART(int size)
 		}
 	}  
 	
-	//tcflush(uart_fd, TCIFLUSH); 
+	tcflush(uart_fd, TCIFLUSH); 
 }
 
 

@@ -12,7 +12,7 @@
 
 void splash(void);
 void help(void);
-void check_heartbeat(void);
+void monitor_imu(void);
 void initRP(void);
 
 extern heartbeat beat;
@@ -46,11 +46,13 @@ int main(int argc, char *argv[])
 	initRP();	
 	initUART();		
 	initIMU();
-	getFirmwareVersion();
+	getFirmwareVersion();	
+	
+	checkHealth(50);
 	
 	while(beat.gps_fail)
 	{
-		
+		checkHealth(50);
 	}
 	
 	resetEKF();	
@@ -60,7 +62,7 @@ int main(int argc, char *argv[])
 	
 	is_experiment_active = true;
 	
-	if (pthread_create(&imu_thread, NULL, (void*)check_heartbeat, NULL))
+	if (pthread_create(&imu_thread, NULL, (void*)monitor_imu, NULL))
 	{
 		cprint("[!!] ", BRIGHT, RED);
 		printf("Error launching imu thread.\n");
@@ -85,7 +87,7 @@ int main(int argc, char *argv[])
 }
 
 
-void check_heartbeat(void)
+void monitor_imu(void)
 {
 	FILE *imuFile;
 	
