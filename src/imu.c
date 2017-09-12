@@ -189,7 +189,46 @@ int txPacket(packet* tx_packet)
 //searches for the first valid paket within 'size' samples of the UART buffer
 int rxPacket(int size)
 {
-	if(parseUART(getUART(size), size))
+	// don't block serial read 
+	fcntl(getFileID(), F_SETFL, FNDELAY); 
+	
+	uint8_t* uart_buffer = (uint8_t*)malloc(size*sizeof(uint8_t));
+  
+	while(1)
+	{
+		if (getFileID() == -1)
+		{
+			cprint("[!!] ", BRIGHT, RED);
+			printf("UART has not been initialized.\n");
+		}
+		
+		// perform uart read
+		int rx_length = read(getFileID(), (void*)uart_buffer, size);
+		
+		if (rx_length == -1)
+		{
+			//printf("No UART data available yet, check again.\n");
+			if(errno == EAGAIN)
+			{
+				// an operation that would block was attempted on an object that has non-blocking mode selected.
+				//printf("UART read blocked, try again.\n");
+				continue;
+			} 
+			else
+			{
+				printf("Error reading from UART.\n");
+			}
+		  
+		}
+		else if (rx_length == size)
+		{	
+			break;
+		}
+	}  
+	
+	tcflush(getFileID(), TCIFLUSH); 
+	
+	if(parseUART(uart_buffer, size))
 	{
 		return 1; 
 	}
@@ -308,23 +347,23 @@ int writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 	{
 		tx_packet.data[i] = data[i];
 	}		
+	
+	if (!txPacket(&tx_packet))
+	{
+		cprint("[!!] ", BRIGHT, RED);
+		fprintf(stderr, "UART TX error.\n");	
+	}	
 		
 	int attempt_n = 0;	
 		
 	//If reveived data was bad or wrong address, repeat transmission and reception
-	while (1)
+	while (!rxPacket(20) || (global_packet.address != tx_packet.address))
 	{
 		if (!txPacket(&tx_packet))
 		{
 			cprint("[!!] ", BRIGHT, RED);
 			fprintf(stderr, "UART TX error.\n");	
 		}	
-		
-		if (parseUART(getUART(50), 50))
-		{
-			printf("Parse sucessfull!\n");
-			return 1;
-		}
 		
 		if (attempt_n++ == 100)
 		{
@@ -333,6 +372,8 @@ int writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 			return -1;
 		}
 	}	
+	
+	return 1;
 }
 
 

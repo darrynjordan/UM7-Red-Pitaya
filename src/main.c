@@ -51,8 +51,7 @@ int main(int argc, char *argv[])
 	
 	getFirmwareVersion();	
 	resetEKF();	
-	zeroGyros();
-	setMagReference();
+	zeroGyros();	
 	
 	checkHealth(50);
 	
@@ -61,7 +60,7 @@ int main(int argc, char *argv[])
 		checkHealth(50);
 	}
 	
-
+	setMagReference();
 	setHomePosition();	
 	
 	is_experiment_active = true;
@@ -73,7 +72,7 @@ int main(int argc, char *argv[])
 	}
 
 	//sleep for 5 seconds to emulate other work
-	for (int i = 0; i < 10; i++)
+	for (int i = 0; i < 5; i++)
 	{
 		usleep(1e6);
 	}
@@ -106,7 +105,8 @@ void monitor_imu(void)
 	//while experiment is active
 	while (is_experiment_active)
 	{	
-		saveUART(200);
+		checkHealth(50);
+		usleep(0.5e6);
 	}
 	
 	fclose(imuFile);
