@@ -94,27 +94,28 @@ typedef struct
   uint8_t gyro_fail;
   uint8_t mag_fail;
   uint8_t gps_fail;
+  uint8_t uart_fail;
 } heartbeat;
 
 void initIMU(void);
 
-void getFirmwareVersion(void);
+void getVersion(void);
 void flashCommit(void);
 void factoryReset(void);
 void zeroGyros(void);
-void setHomePosition(void);
-void setMagReference(void);
+
 void resetEKF(void);
 
 int rxPacket(int size);
 int txPacket(packet* tx_packet);
 int svPacket(packet* sv_packet);
 
-void checkCommand(char* command_name);
+void writeCommand(int command);
 void readRegister(uint8_t address);
 int writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data);
 
-void checkHealth(int size);
+void getHeartbeat(int size);
+void showHeartbeat(void);
 
 uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length);
 

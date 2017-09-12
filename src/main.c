@@ -46,22 +46,21 @@ int main(int argc, char *argv[])
 	initRP();	
 	initUART();		
 	initIMU();
+
+	getVersion();	
+	writeCommand(RESET_EKF);
+	writeCommand(ZERO_GYROS);
 	
-	usleep(1e6);
+	getHeartbeat(50);
 	
-	getFirmwareVersion();	
-	resetEKF();	
-	zeroGyros();	
-	
-	checkHealth(50);
-	
-	while(beat.gps_fail)
+	while(beat.sats_view < 3)
 	{
-		checkHealth(50);
+		getHeartbeat(50);
 	}
 	
-	setMagReference();
-	setHomePosition();	
+	writeCommand(SET_MAG_REFERENCE);
+	writeCommand(SET_HOME_POSITION);
+
 	
 	is_experiment_active = true;
 	
@@ -105,7 +104,7 @@ void monitor_imu(void)
 	//while experiment is active
 	while (is_experiment_active)
 	{	
-		checkHealth(50);
+		getHeartbeat(50);
 		usleep(0.5e6);
 	}
 	

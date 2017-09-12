@@ -255,12 +255,9 @@ int svPacket(packet* sv_packet)
 }
 
 
-void getFirmwareVersion(void)
+void getVersion(void)
 {
-	if (writeRegister(GET_FW_REVISION, 0, zero_buffer))
-	{
-		checkCommand("Check Firmware");
-	}
+	writeCommand(GET_FW_REVISION);
 	
 	char FWrev[5];
 	FWrev[0] = global_packet.data[0];
@@ -271,60 +268,6 @@ void getFirmwareVersion(void)
 
 	cprint("[**] ", BRIGHT, CYAN);
 	printf("Firmware Version: %s\n", FWrev);
-}
-
-
-void flashCommit(void)
-{
-	if (writeRegister(FLASH_COMMIT, 0, zero_buffer))
-	{	
-		checkCommand("Flash Commit");
-	}
-}
-
-
-void factoryReset(void)
-{
-	if (writeRegister(RESET_TO_FACTORY, 0, zero_buffer))
-	{
-		checkCommand("Factory Reset");
-	}
-}
-
-
-void zeroGyros(void)
-{
-	if (writeRegister(ZERO_GYROS, 0, zero_buffer))
-	{
-		checkCommand("Zero Gyros");
-	}
-}
-
-
-void setHomePosition(void)
-{	
-	if (writeRegister(SET_HOME_POSITION, 0, zero_buffer))
-	{	
-		checkCommand("Set GPS Home");
-	}
-}
-
-
-void setMagReference(void)
-{
-	if(writeRegister(SET_MAG_REFERENCE, 0, zero_buffer))
-	{
-		checkCommand("Set Mag Reference");
-	}
-}
-
-
-void resetEKF(void)
-{
-	if(writeRegister(RESET_EKF, 0, zero_buffer))
-	{
-		checkCommand("Reset EKF");
-	}
 }
 
 
@@ -357,7 +300,7 @@ int writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 	int attempt_n = 0;	
 		
 	//If reveived data was bad or wrong address, repeat transmission and reception
-	while (!rxPacket(20) || (global_packet.address != tx_packet.address))
+	while (!rxPacket(25) || (global_packet.address != tx_packet.address))
 	{
 		if (!txPacket(&tx_packet))
 		{
@@ -377,18 +320,21 @@ int writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 }
 
 
-void checkCommand(char* command_name)
+void writeCommand(int command)
 {
-	if (global_packet.packet_type & PT_CF)
+	if(writeRegister(command, 0, zero_buffer))
 	{
-		cprint("[!!] ", BRIGHT, RED);
-		printf("%s Error.\n", command_name);
-		exit(EXIT_FAILURE);
-	}
-	else
-	{
-		cprint("[OK] ", BRIGHT, GREEN);
-		printf("%s.\n", command_name);
+		if (global_packet.packet_type & PT_CF)
+		{
+			cprint("[!!] ", BRIGHT, RED);
+			printf("%i Error.\n", command);
+			exit(EXIT_FAILURE);
+		}
+		else
+		{
+			cprint("[OK] ", BRIGHT, GREEN);
+			printf("Command: %i.\n", command);
+		}				
 	}
 }
 
@@ -416,13 +362,49 @@ void readRegister(uint8_t address)
 }
 
 
-void checkHealth(int size)
+void getHeartbeat(int size)
 {
 	//wait until valid health packet is received
 	while((global_packet.address != DREG_HEALTH) && parseUART(getUART(size), size));
 	
-	uint32_t healthBit32 = bit8ArrayToBit32(global_packet.data);
+	uint32_t health = bit8ArrayToBit32(global_packet.data);
+	int satsView = 0;
+	int satsUsed = 0;
 	
+	beat.gps_fail = checkBit(health, 0);
+	beat.mag_fail = checkBit(health, 1);
+	beat.gyro_fail = checkBit(health, 2);
+	beat.acc_fail = checkBit(health, 3);
+	beat.acc_norm = checkBit(health, 4);
+	beat.mag_fail = checkBit(health, 5);
+	beat.uart_fail = checkBit(health, 8);
+	
+	for (int i = 0; i < 6; i++)
+	{
+		if (health & (uint32_t)(1 << (10 + i)))
+		{
+			satsView += pow(2, i);
+		}
+		
+		if (health & (uint32_t)(1 << (26 + i)))
+		{
+			satsUsed += pow(2, i);
+		}
+	}
+	
+	beat.sats_used = satsUsed;	
+	beat.sats_view = satsView;
+}
+
+
+void showHeartbeat(void)
+{
+	/*cprint("[**] ", BRIGHT, CYAN);
+	printf("Satellites currently in view: %i\n", satsView);	
+
+	cprint("[**] ", BRIGHT, CYAN);
+	printf("Satellites used in position calculation: %i\n", satsUsed);
+		
 	if (healthBit32 & (uint32_t)(1 << 0)) 
 	{
 		cprint("[**] ", BRIGHT, RED);
@@ -439,8 +421,8 @@ void checkHealth(int size)
 	{
 		cprint("[**] ", BRIGHT, RED);
 		printf("Gyro failed to init on startup.\n");
-	}		 
-	 
+	}	
+ 
 	if (healthBit32 & (uint32_t)(1 << 3)) 
 	{
 		cprint("[**] ", BRIGHT, RED);
@@ -463,30 +445,8 @@ void checkHealth(int size)
 	{
 		cprint("[**] ", BRIGHT, RED);
 		printf("UART overflow - reduce broadcast rates.\n");
-	}
-	 
+	}*/
 	
-	int satInView = 0;
-	int satUsed = 0;
-	
-	for (int i = 0; i < 6; i++)
-	{
-		if (healthBit32 & (uint32_t)(1 << (10 + i)))
-		{
-			satInView += pow(2, i);
-		}
-		
-		if (healthBit32 & (uint32_t)(1 << (26 + i)))
-		{
-			satUsed += pow(2, i);
-		}
-	}
-	
-	cprint("[**] ", BRIGHT, CYAN);
-	printf("Satellites currently in view: %i\n", satInView);	
-	
-	cprint("[**] ", BRIGHT, CYAN);
-	printf("Satellites used in position calculation: %i\n", satUsed);
 }
 
 
