@@ -9,7 +9,7 @@ packet global_packet;
 heartbeat beat;
 
 // Parse the serial data obtained through the UART interface and fit to a general packet structure
-uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, int address)
+uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length)
 {
 	uint8_t index;
 	// Make sure that the data buffer provided is long enough to contain a full packet
@@ -94,16 +94,7 @@ uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length, int address)
 	// If we get here, we know that we have a full packet in the buffer. All that remains is to pull
 	// out the data and make sure the checksum is good.
 	// Start by extracting all the data
-	global_packet.address = rx_data[packet_index + 4];
-	
-	if ((address != -1) && (address != global_packet.address))
-	{
-		// Address does not match the search address! 
-		return -5;
-	}
-	
-	printf("packet address = %i, requested address = %i\n", (int)(global_packet.address), address);
-		
+	global_packet.address = rx_data[packet_index + 4];	
 	global_packet.packet_type = PT;
 
 	// Get the data bytes and compute the checksum all in one step
@@ -198,7 +189,7 @@ int txPacket(packet* tx_packet)
 //searches for the first valid paket within 'size' samples of the UART buffer
 int rxPacket(int size)
 {
-	if(parseUART(getUART(size), size, -1))
+	if(parseUART(getUART(size), size))
 	{
 		return 1; 
 	}
@@ -229,7 +220,7 @@ void getFirmwareVersion(void)
 {
 	if (writeRegister(GET_FW_REVISION, 0, zero_buffer))
 	{
-		checkCommandSuccess("Check Firmware");
+		checkCommand("Check Firmware");
 	}
 	
 	char FWrev[5];
@@ -248,7 +239,7 @@ void flashCommit(void)
 {
 	if (writeRegister(FLASH_COMMIT, 0, zero_buffer))
 	{	
-		checkCommandSuccess("Flash Commit");
+		checkCommand("Flash Commit");
 	}
 }
 
@@ -257,7 +248,7 @@ void factoryReset(void)
 {
 	if (writeRegister(RESET_TO_FACTORY, 0, zero_buffer))
 	{
-		checkCommandSuccess("Factory Reset");
+		checkCommand("Factory Reset");
 	}
 }
 
@@ -266,7 +257,7 @@ void zeroGyros(void)
 {
 	if (writeRegister(ZERO_GYROS, 0, zero_buffer))
 	{
-		checkCommandSuccess("Zero Gyros");
+		checkCommand("Zero Gyros");
 	}
 }
 
@@ -275,7 +266,7 @@ void setHomePosition(void)
 {	
 	if (writeRegister(SET_HOME_POSITION, 0, zero_buffer))
 	{	
-		checkCommandSuccess("Set GPS Home");
+		checkCommand("Set GPS Home");
 	}
 }
 
@@ -284,7 +275,7 @@ void setMagReference(void)
 {
 	if(writeRegister(SET_MAG_REFERENCE, 0, zero_buffer))
 	{
-		checkCommandSuccess("Set Mag Reference");
+		checkCommand("Set Mag Reference");
 	}
 }
 
@@ -293,7 +284,7 @@ void resetEKF(void)
 {
 	if(writeRegister(RESET_EKF, 0, zero_buffer))
 	{
-		checkCommandSuccess("Reset EKF");
+		checkCommand("Reset EKF");
 	}
 }
 
@@ -329,7 +320,7 @@ int writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 			fprintf(stderr, "UART TX error.\n");	
 		}	
 		
-		if (parseUART(getUART(50), 50, address))
+		if (parseUART(getUART(50), 50))
 		{
 			printf("Parse sucessfull!\n");
 			return 1;
@@ -345,7 +336,7 @@ int writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 }
 
 
-void checkCommandSuccess(char* command_name)
+void checkCommand(char* command_name)
 {
 	if (global_packet.packet_type & PT_CF)
 	{
@@ -387,7 +378,7 @@ void readRegister(uint8_t address)
 void checkHealth(int size)
 {
 	//wait until valid health packet is received
-	while(!parseUART(getUART(size), size, DREG_HEALTH));
+	while((global_packet.address != DREG_HEALTH) && parseUART(getUART(size), size));
 	
 	uint32_t healthBit32 = bit8ArrayToBit32(global_packet.data);
 	
