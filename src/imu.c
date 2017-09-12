@@ -148,6 +148,7 @@ void initIMU(void)
 	writeRegister(CREG_COM_RATES4, 4, all_proc);			// all proc data rate	
 	writeRegister(CREG_COM_RATES5, 4, zero_buffer);			// quart, euler, position, velocity rate
 	writeRegister(CREG_COM_RATES6, 4, health);				// heartbeat rate
+	writeRegister(CREG_COM_RATES7, 4, zero_buffer);			// CHR NMEA-style packets
 	
 	if (is_debug_mode)
 	{
@@ -205,6 +206,8 @@ int txPacket(packet* tx_packet)
 	
 	if(count < 0)
 	{
+		cprint("[!!] ", BRIGHT, RED);
+		fprintf(stderr, "UART TX error.\n");
 		return -1;
 	}
 	
@@ -259,32 +262,24 @@ int writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 	for (int i = 0; i < n_data_bytes; i++)
 	{
 		tx_packet.data[i] = data[i];
-	}		
-	
-	if (!txPacket(&tx_packet))
-	{
-		cprint("[!!] ", BRIGHT, RED);
-		fprintf(stderr, "UART TX error.\n");	
-	}	
+	}			
 		
-	int attempt_n = 0;	
+	int i = 0;	
 		
 	//If reveived data was bad or wrong address, repeat transmission and reception
-	while (!rxPacket(25) || (global_packet.address != tx_packet.address))
+	do 
 	{
-		if (!txPacket(&tx_packet))
+		if (i++ == 100)
 		{
 			cprint("[!!] ", BRIGHT, RED);
-			fprintf(stderr, "UART TX error.\n");	
-		}	
-		
-		if (attempt_n++ == 100)
-		{
-			cprint("[!!] ", BRIGHT, RED);
-			printf("No response from UM7_R%i after 100 attempts.\n", tx_packet.address);
+			printf("No response from UM7_R%i.\n", tx_packet.address);
 			return -1;
 		}
-	}	
+		
+		txPacket(&tx_packet);
+		rxPacket(20);
+	} 
+	while (global_packet.address != address);
 	
 	return 1;
 }
@@ -317,7 +312,7 @@ void readRegister(uint8_t address)
 	writeRegister(address, 0, zero_buffer);
 	//printf("IMU Register %i: %f\n", address, bit32ToFloat(bit8ArrayToBit32(rx_packet.data)));	
 	
-	if ((global_packet.address == address) && (global_packet.packet_type &= PT_IS_BATCH))
+	if (global_packet.packet_type &= PT_IS_BATCH)
 	{				
 		system("clear\n");
 		printf("UM7_R%i: %f\n", global_packet.address+0, bit8ArrayToFloat(&global_packet.data[0]));
@@ -325,7 +320,7 @@ void readRegister(uint8_t address)
 		printf("UM7_R%i: %f\n", global_packet.address+2, bit8ArrayToFloat(&global_packet.data[8]));
 		printf("UM7_R%i: %f\n", global_packet.address+3, bit8ArrayToFloat(&global_packet.data[12]));
 	}
-	else if (global_packet.address == address)
+	else 
 	{
 		printf("UM7_R%i: ", global_packet.address);
 		for (int i = 0; i < 4; i++)

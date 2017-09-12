@@ -20,6 +20,8 @@
 #define CREG_COM_RATES4 		0x04
 #define CREG_COM_RATES5 		0x05
 #define CREG_COM_RATES6 		0x06
+#define CREG_COM_RATES7 		0x07
+#define CREG_MISC_SETTINGS		0x08
 
 #define DREG_HEALTH 			0x55
 

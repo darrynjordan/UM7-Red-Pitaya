@@ -28,6 +28,17 @@ int main(int argc, char *argv[])
 	initRP();
 	initUART(B115200);
 	initIMU();
+	
+	readRegister(CREG_COM_SETTINGS);
+	readRegister(CREG_COM_RATES1);
+	readRegister(CREG_COM_RATES2);
+	readRegister(CREG_COM_RATES3);
+	readRegister(CREG_COM_RATES4);
+	readRegister(CREG_COM_RATES5);
+	readRegister(CREG_COM_RATES6);
+	readRegister(CREG_COM_RATES7);
+	readRegister(CREG_COM_RATES7);
+	readRegister(CREG_MISC_SETTINGS);
 
 	pthread_t imu_thread;
 
