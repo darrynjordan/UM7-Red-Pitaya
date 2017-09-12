@@ -42,6 +42,7 @@ uint8_t* getUART(int size)
 		else if (rx_length == size)
 		{	
 			return uart_buffer;
+			break;
 		}
 	}  
 	
@@ -78,7 +79,7 @@ void initUART(void)
 	*	IGNPAR = Ignore characters with parity errors
 	*	ICRNL - Map CR to NL on input (Use for ASCII comms
 	*	where you want to auto correct end of line characters
-	*	- don't us e for bianry comms!)
+	*	- don't use for bianry comms!)
 	*	PARENB - Parity enable
 	*	PARODD - Odd parity (else even) */
 
@@ -104,7 +105,7 @@ void initUART(void)
 	tcsetattr(uart_fd, TCSANOW, &settings);
 	
 	cprint("[OK] ", BRIGHT, GREEN);
-	printf("UART Initialised.\n");
+	printf("UART initialised.\n");
 }
 
 
@@ -116,12 +117,6 @@ int dnitUART(void)
 	return 1;
 }
 
-
-void saveUART(int size)
-{
-	/*fwrite(getUARTbuffer(200), sizeof(uint8_t), 200, imuFile);		
-	usleep(0.01e6);*/
-}
 
 int getFileID(void)
 {

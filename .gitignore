@@ -1,6 +1,9 @@
 # Geany
 *.geany
 
+# Executable
+um7rp
+
 # Object files
 *.o
 *.ko

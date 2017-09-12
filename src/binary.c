@@ -58,7 +58,10 @@ float bit8ArrayToFloat(uint8_t *data)
 
 uint8_t checkBit(uint32_t reg, uint8_t bit)
 {
-	return (reg & (uint32_t)(1 << bit));
+	if (reg & (uint32_t)(1 << bit))
+		return 1;
+	else
+		return 0;
 }
 
 

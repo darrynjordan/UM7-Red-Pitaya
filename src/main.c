@@ -1,7 +1,5 @@
-#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <pthread.h>
 
 #include "rp.h"
@@ -12,7 +10,7 @@
 
 void splash(void);
 void help(void);
-void monitor_imu(void);
+void imu_worker(void);
 void initRP(void);
 
 extern heartbeat beat;
@@ -46,37 +44,30 @@ int main(int argc, char *argv[])
 	initRP();	
 	initUART();		
 	initIMU();
-
-	getVersion();	
-	writeCommand(RESET_EKF);
-	writeCommand(ZERO_GYROS);
 	
-	getHeartbeat(50);
-	
-	while(beat.sats_view < 3)
-	{
-		getHeartbeat(50);
-	}
-	
-	writeCommand(SET_MAG_REFERENCE);
-	writeCommand(SET_HOME_POSITION);
-
-	
-	is_experiment_active = true;
-	
-	if (pthread_create(&imu_thread, NULL, (void*)monitor_imu, NULL))
+	if (pthread_create(&imu_thread, NULL, (void*)imu_worker, NULL))
 	{
 		cprint("[!!] ", BRIGHT, RED);
 		printf("Error launching imu thread.\n");
 	}
+	else
+	{
+		cprint("[OK] ", BRIGHT, GREEN);
+		printf("Experiment active.\n");
+	}
+	
+	//start experiment
+	is_experiment_active = true;
 
-	//sleep for 5 seconds to emulate other work
+	//loop to emulate other work
 	for (int i = 0; i < 5; i++)
 	{
+		getHeartbeat(25);
+		showHeartbeat();
 		usleep(1e6);
 	}
 	
-	//other work complete
+	//stop experiment
 	is_experiment_active = false;
 
 	//join all threads
@@ -89,7 +80,7 @@ int main(int argc, char *argv[])
 }
 
 
-void monitor_imu(void)
+void imu_worker(void)
 {
 	FILE *imuFile;
 	
@@ -99,13 +90,11 @@ void monitor_imu(void)
 		exit(EXIT_FAILURE);
 	}
 	
-	printf("IMU active.\n");
-	
 	//while experiment is active
 	while (is_experiment_active)
 	{	
-		getHeartbeat(50);
-		usleep(0.5e6);
+		fwrite(getUART(200), sizeof(uint8_t), 200, imuFile);
+		usleep(0.1e6);
 	}
 	
 	fclose(imuFile);

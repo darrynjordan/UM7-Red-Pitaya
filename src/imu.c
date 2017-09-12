@@ -1,5 +1,7 @@
 #include "imu.h"
 
+extern int is_debug_mode;
+
 // global zero buffer
 uint8_t zero_buffer[4] = {0, 0, 0, 0};
 
@@ -133,10 +135,11 @@ void initIMU(void)
 {
 	//baud rate of the UM7 main serial port = 115200
 	//baud rate of the UM7 auxiliary serial port = 57600
+
 	uint8_t baud = 4 + (5 << 4);	
 	uint8_t com_settings[4] = {baud, 0, 1, 0};	
 	uint8_t all_proc[4] = {0, 0, 0, 255};
-	uint8_t health[4] = {0, 6, 0, 0};
+	//uint8_t health[4] = {0, 6, 0, 0};
 	//uint8_t position[4] = {0, 0, 255, 0};	
 	
 	writeRegister(CREG_COM_SETTINGS, 4, com_settings);		// baud rates, auto transmission	
@@ -145,7 +148,30 @@ void initIMU(void)
 	writeRegister(CREG_COM_RATES3, 4, zero_buffer);			// proc accel, gyro, mag rate		
 	writeRegister(CREG_COM_RATES4, 4, all_proc);			// all proc data rate	
 	writeRegister(CREG_COM_RATES5, 4, zero_buffer);			// quart, euler, position, velocity rate
-	writeRegister(CREG_COM_RATES6, 4, health);				// heartbeat rate
+	//writeRegister(CREG_COM_RATES6, 4, health);				// heartbeat rate
+	
+	if (is_debug_mode)
+	{
+		writeCommand(GET_FW_REVISION);
+		
+		char FWrev[5];
+		FWrev[0] = global_packet.data[0];
+		FWrev[1] = global_packet.data[1];
+		FWrev[2] = global_packet.data[2];
+		FWrev[3] = global_packet.data[3];
+		FWrev[4] = '\0'; //Null-terminate string
+
+		cprint("[**] ", BRIGHT, CYAN);
+		printf("Firmware Version: %s\n", FWrev);
+	}
+	
+	writeCommand(RESET_EKF);
+	writeCommand(ZERO_GYROS);
+	
+	getHeartbeat(25);
+	
+	writeCommand(SET_MAG_REFERENCE);
+	writeCommand(SET_HOME_POSITION);
 }
 
 
@@ -189,46 +215,7 @@ int txPacket(packet* tx_packet)
 //searches for the first valid paket within 'size' samples of the UART buffer
 int rxPacket(int size)
 {
-	// don't block serial read 
-	fcntl(getFileID(), F_SETFL, FNDELAY); 
-	
-	uint8_t* uart_buffer = (uint8_t*)malloc(size*sizeof(uint8_t));
-  
-	while(1)
-	{
-		if (getFileID() == -1)
-		{
-			cprint("[!!] ", BRIGHT, RED);
-			printf("UART has not been initialized.\n");
-		}
-		
-		// perform uart read
-		int rx_length = read(getFileID(), (void*)uart_buffer, size);
-		
-		if (rx_length == -1)
-		{
-			//printf("No UART data available yet, check again.\n");
-			if(errno == EAGAIN)
-			{
-				// an operation that would block was attempted on an object that has non-blocking mode selected.
-				//printf("UART read blocked, try again.\n");
-				continue;
-			} 
-			else
-			{
-				printf("Error reading from UART.\n");
-			}
-		  
-		}
-		else if (rx_length == size)
-		{	
-			break;
-		}
-	}  
-	
-	tcflush(getFileID(), TCIFLUSH); 
-	
-	if(parseUART(uart_buffer, size))
+	if(parseUART(getUART(size), size))
 	{
 		return 1; 
 	}
@@ -252,22 +239,6 @@ int svPacket(packet* sv_packet)
 		}					
 	}*/
 	return 1;
-}
-
-
-void getVersion(void)
-{
-	writeCommand(GET_FW_REVISION);
-	
-	char FWrev[5];
-	FWrev[0] = global_packet.data[0];
-	FWrev[1] = global_packet.data[1];
-	FWrev[2] = global_packet.data[2];
-	FWrev[3] = global_packet.data[3];
-	FWrev[4] = '\0'; //Null-terminate string
-
-	cprint("[**] ", BRIGHT, CYAN);
-	printf("Firmware Version: %s\n", FWrev);
 }
 
 
@@ -376,7 +347,7 @@ void getHeartbeat(int size)
 	beat.gyro_fail = checkBit(health, 2);
 	beat.acc_fail = checkBit(health, 3);
 	beat.acc_norm = checkBit(health, 4);
-	beat.mag_fail = checkBit(health, 5);
+	beat.mag_norm = checkBit(health, 5);
 	beat.uart_fail = checkBit(health, 8);
 	
 	for (int i = 0; i < 6; i++)
@@ -399,54 +370,70 @@ void getHeartbeat(int size)
 
 void showHeartbeat(void)
 {
-	/*cprint("[**] ", BRIGHT, CYAN);
-	printf("Satellites currently in view: %i\n", satsView);	
-
-	cprint("[**] ", BRIGHT, CYAN);
-	printf("Satellites used in position calculation: %i\n", satsUsed);
+	if (is_debug_mode)
+	{
+		if (beat.gps_fail) 
+		{
+			cprint("[**] ", BRIGHT, RED);
+			printf("No GPS data for 2 seconds.\n");
+		}
 		
-	if (healthBit32 & (uint32_t)(1 << 0)) 
+		if (beat.mag_fail) 
+		{
+			cprint("[**] ", BRIGHT, RED);
+			printf("Mag failed to init on startup.\n");
+		}		
+		
+		if (beat.gyro_fail)
+		{
+			cprint("[**] ", BRIGHT, RED);
+			printf("Gyro failed to init on startup.\n");
+		}	
+	 
+		if (beat.acc_fail) 
+		{
+			cprint("[**] ", BRIGHT, RED);
+			printf("Acc failed to init on startup.\n");
+		}		
+		
+		if (beat.acc_norm) 
+		{
+			cprint("[**] ", BRIGHT, RED);
+			printf("Acc norm exceeded - aggressive acceleration detected.\n");
+		}	
+		
+		if (beat.mag_norm) 
+		{
+			cprint("[**] ", BRIGHT, RED);
+			printf("Mag norm exceeded - bad calibration.\n");
+		}
+		
+		if (beat.uart_fail)
+		{
+			cprint("[**] ", BRIGHT, RED);
+			printf("UART overflow - reduce broadcast rates.\n");
+		}		
+		
+		cprint("[**] ", BRIGHT, CYAN);
+		printf("Satellites in view: %i\n", beat.sats_view);	
+
+		cprint("[**] ", BRIGHT, CYAN);
+		printf("Satellites used: %i\n", beat.sats_used);
+	}
+	else
 	{
-		cprint("[**] ", BRIGHT, RED);
-		printf("No GPS data for 2 seconds.\n");
+		int imu_sum = (beat.mag_fail + beat.mag_fail + beat.gyro_fail + beat.acc_fail + beat.acc_norm + beat.mag_norm);
+		
+		char* gps_status = (beat.gps_fail) ? "NO" : "OK";
+		char* uart_status = (beat.uart_fail) ? "NO" : "OK";
+		char* imu_status = (imu_sum) ? "NO" : "OK";
+		
+		printf("| GPS | IMU | UART | SATS |\n");
+		printf("---------------------------\n");
+		printf("| %s  | %s  | %s   | %3i  |\n", gps_status, imu_status, uart_status, beat.sats_view);	
 	}
 	
-	if (healthBit32 & (uint32_t)(1 << 1)) 
-	{
-		cprint("[**] ", BRIGHT, RED);
-		printf("Mag failed to init on startup.\n");
-	}		
-	
-	if (healthBit32 & (uint32_t)(1 << 2))
-	{
-		cprint("[**] ", BRIGHT, RED);
-		printf("Gyro failed to init on startup.\n");
-	}	
- 
-	if (healthBit32 & (uint32_t)(1 << 3)) 
-	{
-		cprint("[**] ", BRIGHT, RED);
-		printf("Acc failed to init on startup.\n");
-	}		
-	
-	if (healthBit32 & (uint32_t)(1 << 4)) 
-	{
-		cprint("[**] ", BRIGHT, RED);
-		printf("Acc norm exceeded - aggressive acceleration detected.\n");
-	}	
-	
-	if (healthBit32 & (uint32_t)(1 << 5)) 
-	{
-		cprint("[**] ", BRIGHT, RED);
-		printf("Mag norm exceeded - bad calibration.\n");
-	}
-	
-	if (healthBit32 & (uint32_t)(1 << 8))
-	{
-		cprint("[**] ", BRIGHT, RED);
-		printf("UART overflow - reduce broadcast rates.\n");
-	}*/
-	
+	printf("\033[%iA\n", 4);
 }
 
 

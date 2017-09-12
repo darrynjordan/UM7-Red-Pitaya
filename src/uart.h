@@ -15,7 +15,6 @@
 void initUART(void);
 int dnitUART(void);
 uint8_t* getUART(int size);
-void saveUART(int size);
 int getFileID(void);
 
 #endif

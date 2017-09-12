@@ -4,9 +4,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>		
-#include <fcntl.h>			
-#include <termios.h>		
-#include <errno.h>
 #include <math.h>
 #include <stdlib.h>
 
@@ -98,13 +95,6 @@ typedef struct
 } heartbeat;
 
 void initIMU(void);
-
-void getVersion(void);
-void flashCommit(void);
-void factoryReset(void);
-void zeroGyros(void);
-
-void resetEKF(void);
 
 int rxPacket(int size);
 int txPacket(packet* tx_packet);
