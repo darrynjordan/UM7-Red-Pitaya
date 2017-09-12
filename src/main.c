@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <termios.h>
 
 #include "rp.h"
 #include "colour.h"
@@ -12,6 +13,7 @@ void splash(void);
 void help(void);
 void imu_worker(void);
 void initRP(void);
+void parse_options(int argc, char *argv[]);
 
 extern heartbeat beat;
 
@@ -21,29 +23,13 @@ int is_debug_mode = false;
 
 int main(int argc, char *argv[])
 {
-	pthread_t imu_thread;
-	int opt;	
-	
-	//retrieve command-line options
-    while ((opt = getopt(argc, argv, "dh")) != -1)
-    {
-        switch (opt)
-        {
-			case 'd':
-				is_debug_mode = true;
-				break; 
-			case 'h':
-				help();
-				break;
-			case '?':
-				fprintf (stderr, "Unknown option character `\\x%x'.\n", optopt);
-        }
-    }	
-	
+	parse_options(argc, argv);
 	splash();
 	initRP();	
-	initUART();		
-	initIMU();
+	initUART(B115200);		
+	initIMU();		
+	
+	pthread_t imu_thread;
 	
 	if (pthread_create(&imu_thread, NULL, (void*)imu_worker, NULL))
 	{
@@ -52,12 +38,11 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
+		//start experiment
+		is_experiment_active = true;
 		cprint("[OK] ", BRIGHT, GREEN);
 		printf("Experiment active.\n");
-	}
-	
-	//start experiment
-	is_experiment_active = true;
+	}	
 
 	//loop to emulate other work
 	for (int i = 0; i < 5; i++)
@@ -128,6 +113,7 @@ void help(void)
 	exit(EXIT_SUCCESS);	
 }
 
+
 void initRP(void)
 {
 	//initialize RP API
@@ -138,4 +124,29 @@ void initRP(void)
 		exit(EXIT_FAILURE);
 	}
 }
+
+
+void parse_options(int argc, char *argv[])
+{
+	int opt;	
+	
+	//retrieve command-line options
+    while ((opt = getopt(argc, argv, "dh")) != -1)
+    {
+        switch (opt)
+        {
+			case 'd':
+				is_debug_mode = true;
+				break; 
+			case 'h':
+				help();
+				break;
+			case '?':
+				fprintf (stderr, "Unknown option character `\\x%x'.\n", optopt);
+        }
+    }	
+}
+
+
+
 

@@ -136,19 +136,21 @@ void initIMU(void)
 	//baud rate of the UM7 main serial port = 115200
 	//baud rate of the UM7 auxiliary serial port = 57600
 
-	uint8_t baud = 4 + (5 << 4);	
+	uint8_t baud = 4 + (8 << 4);	
 	uint8_t com_settings[4] = {baud, 0, 1, 0};	
 	uint8_t all_proc[4] = {0, 0, 0, 255};
-	//uint8_t health[4] = {0, 6, 0, 0};
+	uint8_t health[4] = {0, 6, 0, 0};
 	//uint8_t position[4] = {0, 0, 255, 0};	
 	
 	writeRegister(CREG_COM_SETTINGS, 4, com_settings);		// baud rates, auto transmission	
+	initUART(B230400);
+	
 	writeRegister(CREG_COM_RATES1, 4, zero_buffer);			// raw gyro, accel and mag rate	
 	writeRegister(CREG_COM_RATES2, 4, zero_buffer);			// temp rate and all raw data rate		
 	writeRegister(CREG_COM_RATES3, 4, zero_buffer);			// proc accel, gyro, mag rate		
 	writeRegister(CREG_COM_RATES4, 4, all_proc);			// all proc data rate	
 	writeRegister(CREG_COM_RATES5, 4, zero_buffer);			// quart, euler, position, velocity rate
-	//writeRegister(CREG_COM_RATES6, 4, health);				// heartbeat rate
+	writeRegister(CREG_COM_RATES6, 4, health);				// heartbeat rate
 	
 	if (is_debug_mode)
 	{
@@ -303,8 +305,11 @@ void writeCommand(int command)
 		}
 		else
 		{
-			cprint("[OK] ", BRIGHT, GREEN);
-			printf("Command: %i.\n", command);
+			if (is_debug_mode)
+			{
+				cprint("[OK] ", BRIGHT, GREEN);
+				printf("Command: %i.\n", command);
+			}
 		}				
 	}
 }

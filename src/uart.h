@@ -12,7 +12,7 @@
 
 #include "colour.h"
 
-void initUART(void);
+void initUART(speed_t baud);
 int dnitUART(void);
 uint8_t* getUART(int size);
 int getFileID(void);

@@ -50,7 +50,7 @@ uint8_t* getUART(int size)
 }
 
 
-void initUART(void)
+void initUART(speed_t baud)
 {
 	dnitUART();
 	
@@ -84,14 +84,13 @@ void initUART(void)
 	*	PARODD - Odd parity (else even) */
 
 	/* Set baud rate to 115200 */
-	speed_t baud_rate = B115200;
 
 	/* Baud rate functions
 	* cfsetospeed - Set output speed
 	* cfsetispeed - Set input speed
 	* cfsetspeed  - Set both output and input speed */
 
-	cfsetspeed(&settings, baud_rate);
+	cfsetspeed(&settings, baud);
 
 	settings.c_cflag &= ~PARENB; /* no parity */
 	settings.c_cflag &= ~CSTOPB; /* 1 stop bit */
