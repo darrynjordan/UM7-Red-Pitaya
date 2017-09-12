@@ -123,4 +123,9 @@ void saveUART(int size)
 	usleep(0.01e6);*/
 }
 
+int getFileID(void)
+{
+	return uart_fd;
+}
+
 
