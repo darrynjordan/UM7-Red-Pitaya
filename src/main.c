@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
 	parse_options(argc, argv);
 	splash();
 	initRP();	
-	initUART(B115200);		
+	initUART(B115200);
 	initIMU();		
 	
 	pthread_t imu_thread;
