@@ -2,7 +2,7 @@
 *.geany
 
 # Executable
-um7rp
+*um7rp
 
 # Object files
 *.o
