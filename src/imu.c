@@ -147,7 +147,7 @@ void initIMU(int is_debug_mode)
 	//uint8_t proc_rates[4] = {0, 250, 0, 0};
 	//uint8_t temp_rate[4] = {250, 0, 0, 0};
 	uint8_t health[4] = {0, 6, 0, 0};
-	uint8_t position[4] = {0, 0, 255, 0};	
+	uint8_t position[4] = {0, 0, 0, 0};	
 	
 	writeRegister(CREG_COM_SETTINGS, 4, com_settings);		// baud rates, auto transmission		
 	writeRegister(CREG_COM_RATES1, 4, zero_buffer);			// raw gyro, accel and mag rate	
@@ -440,7 +440,7 @@ void getHeartbeat(void)
 
 void showHeartbeat(void)
 {
-	if (beat.gps_fail) 
+	/*if (beat.gps_fail) 
 	{
 		cprint("[**] ", BRIGHT, RED);
 		printf("No GPS data for 2 seconds.\n");
@@ -486,21 +486,22 @@ void showHeartbeat(void)
 	printf("Satellites in view: %i\n", beat.sats_view);	
 
 	cprint("[**] ", BRIGHT, CYAN);
-	printf("Satellites in use: %i\n", beat.sats_used);
+	printf("Satellites in use: %i\n", beat.sats_used);*/
 
-	/*
 	int imu_sum = (beat.mag_fail + beat.mag_fail + beat.gyro_fail + beat.acc_fail + beat.acc_norm + beat.mag_norm);
 	
 	char* gps_status = (beat.gps_fail) ? "NO" : "OK";
 	char* uart_status = (beat.uart_fail) ? "NO" : "OK";
 	char* imu_status = (imu_sum) ? "NO" : "OK";
 	
+	printf("---------------------------\n");
 	printf("| GPS | IMU | UART | SATS |\n");
 	printf("---------------------------\n");
-	printf("| %s  | %s  | %s   | %3i  |\n", gps_status, imu_status, uart_status, beat.sats_used);	
+	printf("| %s  | %s  |  %s  | %i/%2i |\n", gps_status, imu_status, uart_status, beat.sats_used, beat.sats_view);	
+	printf("---------------------------\n");
+		
+	//printf("\033[%iA\n", 4); 
 	
-	printf("\033[%iA\n", 4); 
-	*/	
 }
 
 
