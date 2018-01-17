@@ -146,17 +146,18 @@ void initIMU(int is_debug_mode)
 	uint8_t com_settings[4] = {4 + (5 << 4), 0, 1, 0};	
 	//uint8_t proc_rates[4] = {0, 250, 0, 0};
 	//uint8_t temp_rate[4] = {250, 0, 0, 0};
-	uint8_t health[4] = {0, 6, 0, 0};
-	uint8_t position[4] = {0, 0, 0, 0};	
+	uint8_t health_rate[4] = {0, 6, 0, 0};
+	uint8_t position_rate[4] = {0, 0, 20, 20};
 	
 	writeRegister(CREG_COM_SETTINGS, 4, com_settings);		// baud rates, auto transmission		
 	writeRegister(CREG_COM_RATES1, 4, zero_buffer);			// raw gyro, accel and mag rate	
 	writeRegister(CREG_COM_RATES2, 4, zero_buffer);			// temp rate and all raw data rate		
 	writeRegister(CREG_COM_RATES3, 4, zero_buffer);			// proc accel, gyro, mag rate		
-	//writeRegister(CREG_COM_RATES4, 4, proc_rates);			// all proc data rate	
-	writeRegister(CREG_COM_RATES5, 4, position);			// quart, euler, position, velocity rate
-	writeRegister(CREG_COM_RATES6, 4, health);				// heartbeat rate
-	writeRegister(CREG_COM_RATES7, 4, zero_buffer);			// CHR NMEA-style packets*/
+	writeRegister(CREG_COM_RATES4, 4, zero_buffer);		 	// all proc data rate	
+	writeRegister(CREG_COM_RATES5, 4, position_rate);		// quart, euler, position, velocity rate
+	writeRegister(CREG_COM_RATES6, 4, health_rate);			// heartbeat rate
+	writeRegister(CREG_COM_RATES7, 4, zero_buffer);			// CHR NMEA-style packets
+	writeRegister(CREG_MISC_SETTINGS, 4, zero_buffer);		// miscellaneous filter and sensor control options
 	
 	if (is_debug_mode)
 	{
@@ -398,8 +399,6 @@ void readRegister(uint8_t address)
 		printf("UM7_R%i: %f\n", global_packet.address+2, bit8ArrayToFloat(&global_packet.data[8]));
 		printf("UM7_R%i: %f\n", global_packet.address+3, bit8ArrayToFloat(&global_packet.data[12]));
 	}*/
-
-
 }
 
 
@@ -499,7 +498,7 @@ void showHeartbeat(void)
 	printf("---------------------------\n");
 	printf("| %s  | %s  |  %s  | %i/%2i |\n", gps_status, imu_status, uart_status, beat.sats_used, beat.sats_view);	
 	printf("---------------------------\n");
-		
+	
 	//printf("\033[%iA\n", 4); 
 	
 }
