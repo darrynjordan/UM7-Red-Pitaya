@@ -71,6 +71,17 @@ int main(int argc, char *argv[])
 	pthread_join(imu_thread, NULL);
 
 	dnitUART();
+	
+	if (is_debug_mode)
+	{
+		cprint("[**] ", BRIGHT, CYAN);
+		printf("Enter host password to transfer files:\n");
+		
+		//copy experiment folder from red pitaya to host computer
+		char command[100];
+		sprintf(command, "scp imu.bin darryn@10.42.0.1:/home/darryn/Dropbox/Datasets/Temp");		
+		system(command);
+	}
 
 	return EXIT_SUCCESS;
 }

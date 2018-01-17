@@ -1,3 +1,6 @@
+RP_HOST=root@10.42.0.186
+DEST_DIR=/opt/redpitaya/rpc
+
 CC=arm-linux-gnueabihf-gcc
 #HAD TO CHANGE AWAY FROM GNUEABI
 
@@ -18,6 +21,7 @@ BIN = um7rp
 
 um7rp: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
+	scp $(BIN) $(RP_HOST):$(DEST_DIR)
 
 .PHONY: clean
 
