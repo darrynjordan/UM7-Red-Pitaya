@@ -11,7 +11,7 @@
 #include "binary.h"
 #include "uart.h"
 
-#define PACKET_DATA_SIZE 		48
+#define PACKET_DATA_SIZE 		30
 
 #define CREG_COM_SETTINGS 		0x00
 #define CREG_COM_RATES1 		0x01
@@ -96,9 +96,9 @@ typedef struct
   uint8_t uart_fail;
 } heartbeat;
 
-void initIMU(void);
+void initIMU(int is_debug_mode);
 
-int rxPacket(int size);
+int rxPacket(int address, int attempts);
 int txPacket(packet* tx_packet);
 int svPacket(packet* sv_packet);
 
@@ -106,10 +106,10 @@ void writeCommand(int command);
 void readRegister(uint8_t address);
 int writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data);
 
-void getHeartbeat(int size);
+void getHeartbeat(void);
 void showHeartbeat(void);
 
-uint8_t parseUART(uint8_t* rx_data, uint8_t rx_length);
+uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length);
 
 
 #endif

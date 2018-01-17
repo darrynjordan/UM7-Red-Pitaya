@@ -3,7 +3,6 @@
 #include <pthread.h>
 #include <termios.h>
 
-#include "rp.h"
 #include "colour.h"
 #include "imu.h"
 #include "binary.h"
@@ -12,24 +11,23 @@
 void splash(void);
 void help(void);
 void imu_worker(void);
-void initRP(void);
 void parse_options(int argc, char *argv[]);
 
 extern heartbeat beat;
+extern uint8_t* uart_buffer;
 
 //global flags
-int is_experiment_active = false;
-int is_debug_mode = false;
+int is_experiment_active = 0;
+int is_debug_mode = 0;
 
 int main(int argc, char *argv[])
 {
 	parse_options(argc, argv);
 	splash();
-	initRP();
 	initUART(B115200);
-	initIMU();
+	initIMU(is_debug_mode);
 	
-	readRegister(CREG_COM_SETTINGS);
+	/*readRegister(CREG_COM_SETTINGS);
 	readRegister(CREG_COM_RATES1);
 	readRegister(CREG_COM_RATES2);
 	readRegister(CREG_COM_RATES3);
@@ -38,7 +36,7 @@ int main(int argc, char *argv[])
 	readRegister(CREG_COM_RATES6);
 	readRegister(CREG_COM_RATES7);
 	readRegister(CREG_COM_RATES7);
-	readRegister(CREG_MISC_SETTINGS);
+	readRegister(CREG_MISC_SETTINGS);*/
 
 	pthread_t imu_thread;
 
@@ -50,7 +48,7 @@ int main(int argc, char *argv[])
 	else
 	{
 		//start experiment
-		is_experiment_active = true;
+		is_experiment_active = 1;
 		cprint("[OK] ", BRIGHT, GREEN);
 		printf("Experiment active.\n");
 	}
@@ -58,19 +56,18 @@ int main(int argc, char *argv[])
 	//loop to emulate other work
 	for (int i = 0; i < 5; i++)
 	{
-		getHeartbeat(25);
+		getHeartbeat();
 		showHeartbeat();
 		usleep(1e6);
 	}
 
 	//stop experiment
-	is_experiment_active = false;
+	is_experiment_active = 0;
 
 	//join all threads
 	pthread_join(imu_thread, NULL);
 
 	dnitUART();
-	rp_Release();
 
 	return EXIT_SUCCESS;
 }
@@ -89,7 +86,7 @@ void imu_worker(void)
 	//while experiment is active
 	while (is_experiment_active)
 	{
-		fwrite(getUART(200), sizeof(uint8_t), 200, imuFile);
+		fwrite(uart_buffer, sizeof(uint8_t), getUART(), imuFile);
 		usleep(0.1e6);
 	}
 
@@ -125,18 +122,6 @@ void help(void)
 }
 
 
-void initRP(void)
-{
-	//initialize RP API
-	if (rp_Init() != RP_OK)
-	{
-		cprint("[!!] ", BRIGHT, RED);
-		printf("Red Pitaya API initialization failed!\n");
-		exit(EXIT_FAILURE);
-	}
-}
-
-
 void parse_options(int argc, char *argv[])
 {
 	int opt;
@@ -147,7 +132,7 @@ void parse_options(int argc, char *argv[])
         switch (opt)
         {
 			case 'd':
-				is_debug_mode = true;
+				is_debug_mode = 1;
 				break;
 			case 'h':
 				help();

@@ -9,12 +9,16 @@
 #include <errno.h>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "colour.h"
 
+#define UART_BUFFER_SIZE 200
+
 void initUART(speed_t baud);
 int dnitUART(void);
-uint8_t* getUART(int size);
+int getUART(void);
 int getFileID(void);
+void clearUART(void);
 
 #endif
