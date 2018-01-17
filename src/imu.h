@@ -106,6 +106,8 @@ void writeCommand(int command);
 void readRegister(uint8_t address);
 int writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data);
 
+void getConfiguration(void);
+
 void getHeartbeat(void);
 void showHeartbeat(void);
 

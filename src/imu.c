@@ -389,52 +389,41 @@ void readRegister(uint8_t address)
 			printf(" %i", global_packet.data[i]);
 		printf("\n");
 	}
-	
-	//printf("IMU Register %i: %f\n", address, bit32ToFloat(bit8ArrayToBit32(rx_packet.data)));	
-	
-	/*if (global_packet.packet_type &= PT_IS_BATCH)
-	{				
-		system("clear\n");
-		printf("UM7_R%i: %f\n", global_packet.address+0, bit8ArrayToFloat(&global_packet.data[0]));
-		printf("UM7_R%i: %f\n", global_packet.address+1, bit8ArrayToFloat(&global_packet.data[4]));
-		printf("UM7_R%i: %f\n", global_packet.address+2, bit8ArrayToFloat(&global_packet.data[8]));
-		printf("UM7_R%i: %f\n", global_packet.address+3, bit8ArrayToFloat(&global_packet.data[12]));
-	}*/
 }
 
 
 void getHeartbeat(void)
 {
 	//wait until valid health packet is received
-	while(rxPacket(DREG_HEALTH, 1) != 1);
+	while(rxPacket(DREG_HEALTH, 1) != 1)
+	{
+		usleep(1e3);
+	}
 	
-	uint32_t health = bit8ArrayToBit32(global_packet.data);
-	int satsView = 0;
-	int satsUsed = 0;
+	uint32_t health_reg = bit8ArrayToBit32(global_packet.data);
+	beat.sats_used = 0;
+	beat.sats_view = 0;
 	
-	beat.gps_fail = checkBit(health, 0);
-	beat.mag_fail = checkBit(health, 1);
-	beat.gyro_fail = checkBit(health, 2);
-	beat.acc_fail = checkBit(health, 3);
-	beat.acc_norm = checkBit(health, 4);
-	beat.mag_norm = checkBit(health, 5);
-	beat.uart_fail = checkBit(health, 8);
+	beat.gps_fail = checkBit(health_reg, 0);
+	beat.mag_fail = checkBit(health_reg, 1);
+	beat.gyro_fail = checkBit(health_reg, 2);
+	beat.acc_fail = checkBit(health_reg, 3);
+	beat.acc_norm = checkBit(health_reg, 4);
+	beat.mag_norm = checkBit(health_reg, 5);
+	beat.uart_fail = checkBit(health_reg, 8);
 	
 	for (int i = 0; i < 6; i++)
 	{
-		if (health & (uint32_t)(1 << (10 + i)))
+		if (health_reg & (uint32_t)(1 << (10 + i)))
 		{
-			satsView += pow(2, i);
+			beat.sats_view += pow(2, i);
 		}
 		
-		if (health & (uint32_t)(1 << (26 + i)))
+		if (health_reg & (uint32_t)(1 << (26 + i)))
 		{
-			satsUsed += pow(2, i);
+			beat.sats_used += pow(2, i);
 		}
 	}
-	
-	beat.sats_used = satsUsed;	
-	beat.sats_view = satsView;
 }
 
 
@@ -500,8 +489,21 @@ void showHeartbeat(void)
 	printf("| %s  | %s  |  %s  | %i/%2i |\n", gps_status, imu_status, uart_status, beat.sats_used, beat.sats_view);	
 	printf("---------------------------\n");
 	
-	//printf("\033[%iA\n", 4); 
-	
+}
+
+
+void getConfiguration(void)
+{
+	readRegister(CREG_COM_SETTINGS);
+	readRegister(CREG_COM_RATES1);
+	readRegister(CREG_COM_RATES2);
+	readRegister(CREG_COM_RATES3);
+	readRegister(CREG_COM_RATES4);
+	readRegister(CREG_COM_RATES5);
+	readRegister(CREG_COM_RATES6);
+	readRegister(CREG_COM_RATES7);
+	readRegister(CREG_COM_RATES7);
+	readRegister(CREG_MISC_SETTINGS);
 }
 
 

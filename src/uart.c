@@ -47,9 +47,6 @@ int getUART(void)
 
 void initUART(speed_t baud)
 {
-	//close any open connection and flush UART 
-	dnitUART();
-	
 	//allocate memory for UART buffer
 	uart_buffer = (uint8_t*)malloc(UART_BUFFER_SIZE*sizeof(uint8_t));
 	

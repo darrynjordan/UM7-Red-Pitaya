@@ -29,16 +29,7 @@ int main(int argc, char *argv[])
 	
 	if (is_debug_mode)
 	{
-		readRegister(CREG_COM_SETTINGS);
-		readRegister(CREG_COM_RATES1);
-		readRegister(CREG_COM_RATES2);
-		readRegister(CREG_COM_RATES3);
-		readRegister(CREG_COM_RATES4);
-		readRegister(CREG_COM_RATES5);
-		readRegister(CREG_COM_RATES6);
-		readRegister(CREG_COM_RATES7);
-		readRegister(CREG_COM_RATES7);
-		readRegister(CREG_MISC_SETTINGS);
+		getConfiguration();
 	}
 
 	pthread_t imu_thread;
@@ -56,12 +47,13 @@ int main(int argc, char *argv[])
 		printf("Experiment active.\n");
 	}
 
+	printf("\033[4B\n");
 	//loop to emulate other work
-	for (int i = 0; i < 5; i++)
+	while (beat.sats_used < 4)
 	{
 		getHeartbeat();
-		showHeartbeat();
-		usleep(1e6);
+		printf("\033[%iA\n", 6);
+		showHeartbeat();		
 	}
 
 	//stop experiment
