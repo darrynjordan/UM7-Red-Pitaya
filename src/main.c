@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 	
 	if (is_debug_mode)
 	{
-		getConfiguration();
+		printConfiguration();
 	}
 
 	pthread_t imu_thread;
@@ -47,13 +47,13 @@ int main(int argc, char *argv[])
 		printf("Experiment active.\n");
 	}
 
-	printf("\033[4B\n");
+	printf("\n\n\n\n\n");
 	//loop to emulate other work
 	while (beat.sats_used < 4)
 	{
 		getHeartbeat();
-		printf("\033[%iA\n", 6);
-		showHeartbeat();		
+		printf("\033[6A\n");
+		printHeartbeat();		
 	}
 
 	//stop experiment

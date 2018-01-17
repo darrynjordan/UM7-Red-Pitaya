@@ -57,9 +57,9 @@ uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length)
 
 			// Now finally figure out the actual packet length
 			uint8_t data_length = 0;
-			if( packet_has_data )
+			if (packet_has_data)
 			{
-				if( packet_is_batch )
+				if (packet_is_batch)
 				{
 					// Packet has data and is a batch. This means it contains 'batch_length' registers, each
 					// of which has a length of 4 bytes
@@ -211,7 +211,7 @@ int txPacket(packet* tx_packet)
 	
 	tx_buffer[5 + i] = checksum >> 8;
 	tx_buffer[6 + i] = checksum & 0xff;
-	tx_buffer[msg_len++] = 0x0a; //New line numerical value
+	tx_buffer[msg_len++] = 0x0a; //new line numerical value
 	
 	
 	if (write(getFileID(), &tx_buffer, (msg_len)) < 0)
@@ -380,18 +380,6 @@ void writeCommand(int command)
 }
 
 
-void readRegister(uint8_t address)
-{
-	if (writeRegister(address, 0, zero_buffer))
-	{
-		printf("UM7_R%i: ", global_packet.address);
-		for (int i = 0; i < 4; i++)
-			printf(" %i", global_packet.data[i]);
-		printf("\n");
-	}
-}
-
-
 void getHeartbeat(void)
 {
 	//wait until valid health packet is received
@@ -427,7 +415,7 @@ void getHeartbeat(void)
 }
 
 
-void showHeartbeat(void)
+void printHeartbeat(void)
 {
 	/*if (beat.gps_fail) 
 	{
@@ -492,18 +480,105 @@ void showHeartbeat(void)
 }
 
 
-void getConfiguration(void)
+void printRegister(uint8_t address)
 {
-	readRegister(CREG_COM_SETTINGS);
-	readRegister(CREG_COM_RATES1);
-	readRegister(CREG_COM_RATES2);
-	readRegister(CREG_COM_RATES3);
-	readRegister(CREG_COM_RATES4);
-	readRegister(CREG_COM_RATES5);
-	readRegister(CREG_COM_RATES6);
-	readRegister(CREG_COM_RATES7);
-	readRegister(CREG_COM_RATES7);
-	readRegister(CREG_MISC_SETTINGS);
+	if (writeRegister(address, 0, zero_buffer))
+	{
+		printf("UM7_R%i: ", global_packet.address);
+		for (int i = 0; i < 4; i++)
+			printf(" %i", global_packet.data[i]);
+		printf("\n");
+	}
+}
+
+
+void printConfiguration(void)
+{
+	printf("\n");
+	
+	if (writeRegister(CREG_COM_SETTINGS, 0, zero_buffer))
+	{
+		printf("CREG_COM_SETTINGS (%i):\n", global_packet.address);
+		printf("baud_rate: \t%i\n", (global_packet.data[0] & 0b11110000) >> 4);
+		printf("gps_baud: \t%i\n", (global_packet.data[0] & 0b00001111) >> 0);
+		printf("gps_auto: \t%i\n", checkBit(global_packet.data[2], 0));
+		printf("sat_auto: \t%i\n", checkBit(global_packet.data[3], 4));
+		printf("\n");
+	}
+	
+	if (writeRegister(CREG_COM_RATES1, 0, zero_buffer))
+	{
+		printf("CREG_COM_RATES1 (%i):\n", global_packet.address);
+		printf("raw_acc_rate: \t%i\n", 	global_packet.data[0]);
+		printf("raw_gyro_rate: \t%i\n", global_packet.data[1]);
+		printf("raw_mag_rate: \t%i\n", 	global_packet.data[2]);
+		printf("\n");
+	}
+	
+	if (writeRegister(CREG_COM_RATES2, 0, zero_buffer))
+	{
+		printf("CREG_COM_RATES2 (%i):\n", global_packet.address);
+		printf("temp_rate: \t%i\n", 	global_packet.data[0]);
+		printf("all_raw_rate: \t%i\n", 	global_packet.data[3]);
+		printf("\n");
+	}
+	
+	if (writeRegister(CREG_COM_RATES3, 0, zero_buffer))
+	{
+		printf("CREG_COM_RATES3 (%i):\n", global_packet.address);
+		printf("proc_acc_rate: \t%i\n", global_packet.data[0]);
+		printf("proc_gyro_rate: %i\n", 	global_packet.data[1]);
+		printf("proc_mag_rate: \t%i\n", global_packet.data[2]);
+		printf("\n");
+	}
+	
+	if (writeRegister(CREG_COM_RATES4, 0, zero_buffer))
+	{
+		printf("CREG_COM_RATES4 (%i):\n", global_packet.address);
+		printf("all_proc_rate: \t%i\n", global_packet.data[3]);
+		printf("\n");
+	}
+	
+	if (writeRegister(CREG_COM_RATES5, 0, zero_buffer))
+	{
+		printf("CREG_COM_RATES5 (%i):\n", global_packet.address);
+		printf("quat_rate: \t%i\n", 	global_packet.data[0]);
+		printf("euler_rate: \t%i\n", 	global_packet.data[1]);
+		printf("position_rate: \t%i\n", global_packet.data[2]);
+		printf("velocity_rate: \t%i\n", global_packet.data[3]);
+		printf("\n");
+	}
+	
+	if (writeRegister(CREG_COM_RATES6, 0, zero_buffer))
+	{
+		printf("CREG_COM_RATES6 (%i):\n", global_packet.address);
+		printf("pose_rate: \t%i\n", global_packet.data[0]);
+		printf("health_rate: \t%i\n", (global_packet.data[1] & 0b00001111));
+		printf("\n");
+	}
+	
+	if (writeRegister(CREG_COM_RATES7, 0, zero_buffer))
+	{
+		printf("CREG_COM_RATES7 (%i):\n", global_packet.address);
+		printf("health_rate: \t%i\n", 	(global_packet.data[0] & 0b11110000) >> 4);
+		printf("pose_rate: \t%i\n", 	(global_packet.data[0] & 0b00001111) >> 0);
+		printf("attitude_rate: \t%i\n", (global_packet.data[1] & 0b11110000) >> 4);
+		printf("sensor_rate: \t%i\n", 	(global_packet.data[1] & 0b00001111) >> 0);
+		printf("rates_rate: \t%i\n", 	(global_packet.data[2] & 0b11110000) >> 4);
+		printf("gps_pose_rate: \t%i\n", (global_packet.data[2] & 0b00001111) >> 0);
+		printf("quat_rate: \t%i\n", 	(global_packet.data[3] & 0b11110000) >> 4);
+		printf("\n");
+	}
+	
+	if (writeRegister(CREG_MISC_SETTINGS, 0, zero_buffer))
+	{
+		printf("CREG_MISC_SETTINGS (%i):\n", global_packet.address);
+		printf("pps: \t\t%i\n", 		checkBit(global_packet.data[2], 0));
+		printf("gyro_bias: \t%i\n", 	checkBit(global_packet.data[3], 2));
+		printf("quaternion: \t%i\n", 	checkBit(global_packet.data[3], 1));
+		printf("mag_state: \t%i\n", 	checkBit(global_packet.data[3], 0));
+		printf("\n");
+	}
 }
 
 

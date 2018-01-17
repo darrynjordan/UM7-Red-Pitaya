@@ -103,13 +103,13 @@ int txPacket(packet* tx_packet);
 int svPacket(packet* sv_packet);
 
 void writeCommand(int command);
-void readRegister(uint8_t address);
+void printRegister(uint8_t address);
 int writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data);
 
-void getConfiguration(void);
+void printConfiguration(void);
 
 void getHeartbeat(void);
-void showHeartbeat(void);
+void printHeartbeat(void);
 
 uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length);
 
