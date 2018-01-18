@@ -136,9 +136,12 @@ uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length)
 }
 
 
-void initIMU(int is_debug_mode)
+void initIMU(int is_debug_mode, int is_reset)
 {
-	writeCommand(RESET_TO_FACTORY);
+	if (is_reset)
+	{
+		writeCommand(RESET_TO_FACTORY);
+	}
 	
 	//baud rate of the UM7 main serial port = 115200
 	//baud rate of the UM7 auxiliary serial port = 57600
@@ -148,6 +151,7 @@ void initIMU(int is_debug_mode)
 	//uint8_t temp_rate[4] = {250, 0, 0, 0};
 	uint8_t health_rate[4] = {0, 6, 0, 0};
 	uint8_t position_rate[4] = {0, 0, 0, 0};
+	uint8_t misc_settings[4] = {0, 0, 1, 1};
 	
 	writeRegister(CREG_COM_SETTINGS, 4, com_settings);		// baud rates, auto transmission		
 	writeRegister(CREG_COM_RATES1, 4, zero_buffer);			// raw gyro, accel and mag rate	
@@ -157,7 +161,7 @@ void initIMU(int is_debug_mode)
 	writeRegister(CREG_COM_RATES5, 4, position_rate);		// quart, euler, position, velocity rate
 	writeRegister(CREG_COM_RATES6, 4, health_rate);			// heartbeat rate
 	writeRegister(CREG_COM_RATES7, 4, zero_buffer);			// CHR NMEA-style packets
-	//writeRegister(CREG_MISC_SETTINGS, 4, zero_buffer);		// miscellaneous filter and sensor control options
+	writeRegister(CREG_MISC_SETTINGS, 4, misc_settings);		// miscellaneous filter and sensor control options
 	
 	if (is_debug_mode)
 	{

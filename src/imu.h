@@ -96,7 +96,7 @@ typedef struct
   uint8_t uart_fail;
 } heartbeat;
 
-void initIMU(int is_debug_mode);
+void initIMU(int is_debug_mode, int is_reset);
 
 int rxPacket(int address, int attempts);
 int txPacket(packet* tx_packet);

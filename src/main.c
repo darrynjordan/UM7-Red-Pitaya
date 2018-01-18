@@ -19,13 +19,14 @@ extern uint8_t* uart_buffer;
 //global flags
 int is_experiment_active = 0;
 int is_debug_mode = 0;
+int is_reset = 0;
 
 int main(int argc, char *argv[])
 {
 	parse_options(argc, argv);
 	splash();
 	initUART(B115200);
-	initIMU(is_debug_mode);
+	initIMU(is_debug_mode, is_reset);
 	
 	if (is_debug_mode)
 	{
@@ -49,7 +50,7 @@ int main(int argc, char *argv[])
 
 	printf("\n\n\n\n\n");
 	//loop to emulate other work
-	while (beat.sats_used < 4)
+	while (beat.sats_used < 10)
 	{
 		getHeartbeat();
 		printf("\033[6A\n");
@@ -133,7 +134,7 @@ void parse_options(int argc, char *argv[])
 	int opt;
 
 	//retrieve command-line options
-    while ((opt = getopt(argc, argv, "dh")) != -1)
+    while ((opt = getopt(argc, argv, "dhr")) != -1)
     {
         switch (opt)
         {
@@ -142,6 +143,9 @@ void parse_options(int argc, char *argv[])
 				break;
 			case 'h':
 				help();
+				break;
+			case 'r':
+				is_reset = 1;
 				break;
 			case '?':
 				fprintf (stderr, "Unknown option character `\\x%x'.\n", optopt);
