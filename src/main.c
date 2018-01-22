@@ -36,6 +36,10 @@ int main(int argc, char *argv[])
 	
 	getHeartbeat();
 	printHeartbeat();
+	
+	printRegister(CREG_HOME_NORTH);
+	printRegister(CREG_HOME_EAST);
+	printRegister(CREG_HOME_UP);
 
 	pthread_t imu_thread;
 
@@ -52,7 +56,7 @@ int main(int argc, char *argv[])
 		printf("Experiment active.\n");
 	}
 
-	for (int j = 0; j < 5; j++)
+	while (1)
 	{
 		//sleep for a while to emulate other work
 		sleep(1);
