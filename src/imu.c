@@ -12,7 +12,6 @@ uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length)
 	global_packet.is_valid = 0;
 	global_packet.address = -1;
 	global_packet.packet_type = -1;
-	global_packet.data = -1;
 	global_packet.n_data_bytes = -1;
 	global_packet.checksum = -1;	
 	

@@ -25,8 +25,8 @@ int main(int argc, char *argv[])
 {
 	parse_options(argc, argv);
 	splash();
-	//initUART(B115200);
-	initIMU(is_debug_mode, is_reset);
+	initUART(B115200);
+	//initIMU(is_debug_mode, is_reset);
 	
 	if (is_debug_mode)
 	{
