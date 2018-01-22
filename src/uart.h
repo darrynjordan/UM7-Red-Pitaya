@@ -13,7 +13,7 @@
 
 #include "colour.h"
 
-#define UART_BUFFER_SIZE 200
+#define UART_BUFFER_SIZE 10000
 
 void initUART(speed_t baud);
 int dnitUART(void);

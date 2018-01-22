@@ -12,6 +12,7 @@
 #include "uart.h"
 
 #define PACKET_DATA_SIZE 		30
+#define TX_PACKET_ATTEMPTS 		100
 
 #define CREG_COM_SETTINGS 		0x00
 #define CREG_COM_RATES1 		0x01
@@ -75,18 +76,18 @@
 
 typedef struct 
 {
+  uint8_t is_valid;
   uint8_t address;
   uint8_t packet_type;
-  uint16_t checksum; 
   uint8_t data[PACKET_DATA_SIZE];
   uint8_t n_data_bytes;
+  uint16_t checksum; 
 } packet;
 
 typedef struct 
 {
   uint8_t sats_used;
   uint8_t sats_view;
-  uint16_t hdop;  
   uint8_t mag_norm;
   uint8_t acc_norm; 
   uint8_t acc_fail;
@@ -94,13 +95,13 @@ typedef struct
   uint8_t mag_fail;
   uint8_t gps_fail;
   uint8_t uart_fail;
+  uint16_t hdop;  
 } heartbeat;
 
 void initIMU(int is_debug_mode, int is_reset);
 
 int rxPacket(int address, int attempts);
 int txPacket(packet* tx_packet);
-int svPacket(packet* sv_packet);
 
 void writeCommand(int command);
 void printRegister(uint8_t address);

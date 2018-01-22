@@ -8,7 +8,14 @@ heartbeat beat;
 // Parse the serial data obtained through the UART interface and fit to a general packet structure
 uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length)
 {
-	uint8_t index;
+	//reset global packet parameters
+	global_packet.is_valid = 0;
+	global_packet.address = -1;
+	global_packet.packet_type = -1;
+	global_packet.data = -1;
+	global_packet.n_data_bytes = -1;
+	global_packet.checksum = -1;	
+	
 	// Make sure that the data buffer provided is long enough to contain a full packet
 	// The minimum packet length is 7 bytes
 	if (rx_length < 7)
@@ -17,6 +24,7 @@ uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length)
 		return 0;		
 	}
 	
+	uint8_t index;
 	// Try to find the 'snp' start sequence for the packet
 	for (index = 0; index < (rx_length - 2); index++)
     {
@@ -49,13 +57,12 @@ uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length)
 			uint8_t PT = rx_data[packet_index + 3];
 
 			// Do some bit-level manipulation to determine if the packet contains data and if it is a batch
-			// We have to do this because the individual bits in the PT byte specify the contents of the
-			// packet.
+			// We have to do this because the individual bits in the PT byte specify the contents of the packet.
 			uint8_t packet_has_data = (PT >> 7) & 0x01; // Check bit 7 (HAS_DATA)
 			uint8_t packet_is_batch = (PT >> 6) & 0x01; // Check bit 6 (IS_BATCH)
 			uint8_t batch_length = (PT >> 2) & 0x0F; // Extract the batch length (bits 2 through 5)
 
-			// Now finally figure out the actual packet length
+			// Now finally figure out the actual data length [bytes]
 			uint8_t data_length = 0;
 			if (packet_has_data)
 			{
@@ -123,10 +130,10 @@ uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length)
 				return 0;
 			}
 			
-			//printf("checksum good!\n");
 			global_packet.checksum = computed_checksum;
+			global_packet.is_valid = 1;
 			// At this point, we've received a full packet with a good checksum. It is already
-			// fully parsed and copied to the packet structure, so return 0 to indicate that a packet was
+			// fully parsed and copied to the packet structure, so return 1 to indicate that a packet was
 			// processed.
 			return 1;			
 		}
@@ -151,7 +158,7 @@ void initIMU(int is_debug_mode, int is_reset)
 	//uint8_t temp_rate[4] = {250, 0, 0, 0};
 	uint8_t health_rate[4] = {0, 6, 0, 0};
 	uint8_t position_rate[4] = {0, 0, 0, 0};
-	uint8_t misc_settings[4] = {0, 0, 1, 1};
+	uint8_t misc_settings[4] = {0, 0, 0, 1};
 	
 	writeRegister(CREG_COM_SETTINGS, 4, com_settings);		// baud rates, auto transmission		
 	writeRegister(CREG_COM_RATES1, 4, zero_buffer);			// raw gyro, accel and mag rate	
@@ -161,7 +168,7 @@ void initIMU(int is_debug_mode, int is_reset)
 	writeRegister(CREG_COM_RATES5, 4, position_rate);		// quart, euler, position, velocity rate
 	writeRegister(CREG_COM_RATES6, 4, health_rate);			// heartbeat rate
 	writeRegister(CREG_COM_RATES7, 4, zero_buffer);			// CHR NMEA-style packets
-	writeRegister(CREG_MISC_SETTINGS, 4, misc_settings);		// miscellaneous filter and sensor control options
+	writeRegister(CREG_MISC_SETTINGS, 4, misc_settings);	// miscellaneous filter and sensor control options
 	
 	if (is_debug_mode)
 	{
@@ -179,7 +186,7 @@ void initIMU(int is_debug_mode, int is_reset)
 	}
 	
 	//writeCommand(RESET_EKF);
-	writeCommand(ZERO_GYROS);
+	//writeCommand(ZERO_GYROS);
 	
 	//let gps lock before setting reference points 
 	//getHeartbeat();
@@ -205,9 +212,9 @@ int txPacket(packet* tx_packet)
 	//Calculate checksum and add data to buffer
 	uint16_t checksum = 's' + 'n' + 'p' + tx_buffer[3] + tx_buffer[4];
 	
-	int i = 0;
+	int i;
 	
-	for (i = 0; i < tx_packet->n_data_bytes;i++)
+	for (i = 0; i < tx_packet->n_data_bytes; i++)
 	{
 		tx_buffer[5 + i] = tx_packet->data[i];
 		checksum += tx_packet->data[i];
@@ -217,8 +224,7 @@ int txPacket(packet* tx_packet)
 	tx_buffer[6 + i] = checksum & 0xff;
 	tx_buffer[msg_len++] = 0x0a; //new line numerical value
 	
-	
-	if (write(getFileID(), &tx_buffer, (msg_len)) < 0)
+	if (write(getFileID(), &tx_buffer, strlen(tx_buffer)) < 0)
 	{
 		cprint("[!!] ", BRIGHT, RED);
 		fprintf(stderr, "UART TX error.\n");
@@ -246,27 +252,12 @@ int rxPacket(int address, int attempts)
 }
 
 
-//saves the data within the provided packet
-int svPacket(packet* sv_packet)
-{
-	/*if ((sv_packet.address == DREG_ALL_PROC) && (sv_packet.packet_type &= PT_IS_BATCH))
-	{		
-		for (int i = 0; i < 12; i++)
-		{
-			float data = bit32ToFloat(bit8ArrayToBit32(&global_packet.data[4*i]));
-			fwrite(&data, sizeof(float), 1, imuFile);
-		}					
-	}*/
-	return 1;
-}
-
-
 int writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 {
 	packet tx_packet;	
 
 	tx_packet.address = address;
-	tx_packet.packet_type = 0x00;
+	tx_packet.packet_type = 0;
 	tx_packet.n_data_bytes = n_data_bytes;	
 	
 	if (n_data_bytes != 0)
@@ -287,7 +278,7 @@ int writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 	{
 		txPacket(&tx_packet);
 		
-		if (i++ == 100)
+		if (i++ == TX_PACKET_ATTEMPTS)
 		{
 			cprint("[!!] ", BRIGHT, RED);
 			printf("No response from ");
