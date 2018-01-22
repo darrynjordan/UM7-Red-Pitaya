@@ -6,12 +6,19 @@
 #include <unistd.h>		
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
+#include <libserialport.h>
 
 #include "colour.h"
 #include "binary.h"
-#include "uart.h"
 
-#define PACKET_DATA_SIZE 		30
+#define UART_PORT  				"/dev/ttyPS1"
+#define UART_BAUD_RATE			115200
+#define UART_BITS				8
+#define UART_STOPBITS			1
+#define UART_BYTE_BUFFER		4096
+
+#define MAX_PACKET_DATA			50
 #define TX_PACKET_ATTEMPTS 		100
 
 #define CREG_COM_SETTINGS 		0x00
@@ -79,7 +86,7 @@ typedef struct
   uint8_t is_valid;
   uint8_t address;
   uint8_t packet_type;
-  uint8_t data[PACKET_DATA_SIZE];
+  uint8_t data[MAX_PACKET_DATA];
   uint8_t n_data_bytes;
   uint16_t checksum; 
 } packet;
@@ -103,7 +110,7 @@ void initIMU(int is_debug_mode, int is_reset);
 int rxPacket(int address, int attempts);
 int txPacket(packet* tx_packet);
 
-void writeCommand(int command);
+int writeCommand(int command);
 void printRegister(uint8_t address);
 int writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data);
 
@@ -113,6 +120,11 @@ void getHeartbeat(void);
 void printHeartbeat(void);
 
 uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length);
+
+void initUART(void);
+void dnitUART(void);
+int getUART(void);
+void list_ports(void);
 
 
 #endif

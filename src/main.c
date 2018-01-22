@@ -2,11 +2,11 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <termios.h>
+#include <libserialport.h>
 
 #include "colour.h"
 #include "imu.h"
 #include "binary.h"
-#include "uart.h"
 
 void splash(void);
 void help(void);
@@ -14,7 +14,7 @@ void imu_worker(void);
 void parse_options(int argc, char *argv[]);
 
 extern heartbeat beat;
-extern uint8_t* uart_buffer;
+extern uint8_t* byte_buffer;
 
 //global flags
 int is_experiment_active = 0;
@@ -25,13 +25,17 @@ int main(int argc, char *argv[])
 {
 	parse_options(argc, argv);
 	splash();
-	initUART(B115200);
-	//initIMU(is_debug_mode, is_reset);
+	
+	initUART();
+	initIMU(is_debug_mode, is_reset);
 	
 	if (is_debug_mode)
 	{
 		printConfiguration();
 	}
+	
+	getHeartbeat();
+	printHeartbeat();
 
 	pthread_t imu_thread;
 
@@ -48,13 +52,10 @@ int main(int argc, char *argv[])
 		printf("Experiment active.\n");
 	}
 
-	printf("\n\n\n\n\n");
-	//loop to emulate other work
-	while (beat.sats_used < 10)
+	for (int j = 0; j < 5; j++)
 	{
-		getHeartbeat();
-		printf("\033[6A\n");
-		printHeartbeat();		
+		//sleep for a while to emulate other work
+		sleep(1);
 	}
 
 	//stop experiment
@@ -63,8 +64,6 @@ int main(int argc, char *argv[])
 	//join all threads
 	pthread_join(imu_thread, NULL);
 
-	dnitUART();
-	
 	if (is_debug_mode)
 	{
 		cprint("[**] ", BRIGHT, CYAN);
@@ -93,8 +92,10 @@ void imu_worker(void)
 	//while experiment is active
 	while (is_experiment_active)
 	{
-		fwrite(uart_buffer, sizeof(uint8_t), getUART(), imuFile);
-		usleep(0.1e6);
+		int bytes_read = getUART();
+		printf("Read %i bytes\n", bytes_read);
+		fwrite(byte_buffer, sizeof(uint8_t), bytes_read, imuFile);
+		usleep(0.5e6);
 	}
 
 	fclose(imuFile);

@@ -1,20 +1,18 @@
 #include "imu.h"
 
-extern uint8_t* uart_buffer;
+struct sp_port *port;
+struct sp_port_config *port_config;
+
+uint8_t* byte_buffer;
 uint8_t zero_buffer[4] = {0, 0, 0, 0};
+
 packet global_packet;
 heartbeat beat;
 
 // Parse the serial data obtained through the UART interface and fit to a general packet structure
 uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length)
 {
-	//reset global packet parameters
-	global_packet.is_valid = 0;
-	global_packet.address = -1;
-	global_packet.packet_type = -1;
-	global_packet.n_data_bytes = -1;
-	global_packet.checksum = -1;	
-	
+	uint8_t index;
 	// Make sure that the data buffer provided is long enough to contain a full packet
 	// The minimum packet length is 7 bytes
 	if (rx_length < 7)
@@ -23,21 +21,19 @@ uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length)
 		return 0;		
 	}
 	
-	uint8_t index;
 	// Try to find the 'snp' start sequence for the packet
 	for (index = 0; index < (rx_length - 2); index++)
     {
 		// Check for 'snp'. If found, immediately exit the loop
 		if (rx_data[index] == 's' && rx_data[index+1] == 'n' && rx_data[index+2] == 'p')
 		{
-			//found valid SNP			
+			//found valid SNP
 			uint8_t packet_index = index;
 	
 			// Check to see if the variable 'packet_index' is equal to (rx_length - 2). If it is, then the above
 			// loop executed to completion and never found a packet header.
 			if (packet_index == (rx_length - 2))
 			{
-				printf("Didn't find SNP\n");
 				return 0;
 			}
 			
@@ -46,7 +42,6 @@ uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length)
 			// contains the location of the 's' character in the buffer (the first byte in the header)
 			if ((rx_length - packet_index) < 7)
 			{
-				//printf("not enough room after 's' for a full packet\n");
 				return 0;
 			}
 			
@@ -56,12 +51,13 @@ uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length)
 			uint8_t PT = rx_data[packet_index + 3];
 
 			// Do some bit-level manipulation to determine if the packet contains data and if it is a batch
-			// We have to do this because the individual bits in the PT byte specify the contents of the packet.
+			// We have to do this because the individual bits in the PT byte specify the contents of the
+			// packet.
 			uint8_t packet_has_data = (PT >> 7) & 0x01; // Check bit 7 (HAS_DATA)
 			uint8_t packet_is_batch = (PT >> 6) & 0x01; // Check bit 6 (IS_BATCH)
 			uint8_t batch_length = (PT >> 2) & 0x0F; // Extract the batch length (bits 2 through 5)
 
-			// Now finally figure out the actual data length [bytes]
+			// Now finally figure out the actual packet length
 			uint8_t data_length = 0;
 			if (packet_has_data)
 			{
@@ -86,8 +82,7 @@ uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length)
 			// we have enough data for the full packet.
 			if( (rx_length - packet_index) < (data_length + 5) )
 			{
-				//printf("not enough data for full packet!\n");
-				//printf("rx_length %d, packet_index %d, data_length+5 %d\n", rx_length, packet_index, data_length+5); 
+				//printf("Not enough data for full packet!\n");
 				return 0;
 			}
 			
@@ -99,10 +94,12 @@ uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length)
 			
 			if (global_packet.address != address)
 			{
+				//printf("Wrong packet address, looking again!\n");
 				//packet address does not match search address
 				//increase the loop index and look for a new valid packet
-				return 0;
+				continue;
 			}
+			//printf("Found one!\n");
 
 			// Get the data bytes and compute the checksum all in one step
 			global_packet.n_data_bytes = data_length;
@@ -129,10 +126,10 @@ uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length)
 				return 0;
 			}
 			
+			//printf("checksum good!\n");
 			global_packet.checksum = computed_checksum;
-			global_packet.is_valid = 1;
 			// At this point, we've received a full packet with a good checksum. It is already
-			// fully parsed and copied to the packet structure, so return 1 to indicate that a packet was
+			// fully parsed and copied to the packet structure, so return 0 to indicate that a packet was
 			// processed.
 			return 1;			
 		}
@@ -144,48 +141,52 @@ uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length)
 
 void initIMU(int is_debug_mode, int is_reset)
 {
+	byte_buffer = (uint8_t*)malloc(UART_BYTE_BUFFER*sizeof(uint8_t));	
+	
 	if (is_reset)
 	{
 		writeCommand(RESET_TO_FACTORY);
 	}
 	
-	//baud rate of the UM7 main serial port = 115200
-	//baud rate of the UM7 auxiliary serial port = 57600
-
-	uint8_t com_settings[4] = {4 + (5 << 4), 0, 1, 0};	
-	//uint8_t proc_rates[4] = {0, 0, 0, 20};
-	//uint8_t temp_rate[4] = {250, 0, 0, 0};
-	uint8_t health_rate[4] = {0, 6, 0, 0};
-	uint8_t position_rate[4] = {0, 0, 0, 0};
-	uint8_t misc_settings[4] = {0, 0, 0, 1};
-	
-	writeRegister(CREG_COM_SETTINGS, 4, com_settings);		// baud rates, auto transmission		
-	writeRegister(CREG_COM_RATES1, 4, zero_buffer);			// raw gyro, accel and mag rate	
-	writeRegister(CREG_COM_RATES2, 4, zero_buffer);			// temp rate and all raw data rate		
-	writeRegister(CREG_COM_RATES3, 4, zero_buffer);			// proc accel, gyro, mag rate		
-	//writeRegister(CREG_COM_RATES4, 4, proc_rates);		 	// all proc data rate	
-	writeRegister(CREG_COM_RATES5, 4, position_rate);		// quart, euler, position, velocity rate
-	writeRegister(CREG_COM_RATES6, 4, health_rate);			// heartbeat rate
-	writeRegister(CREG_COM_RATES7, 4, zero_buffer);			// CHR NMEA-style packets
-	writeRegister(CREG_MISC_SETTINGS, 4, misc_settings);	// miscellaneous filter and sensor control options
-	
 	if (is_debug_mode)
 	{
-		writeCommand(GET_FW_REVISION);
-		
-		char FWrev[5];
-		FWrev[0] = global_packet.data[0];
-		FWrev[1] = global_packet.data[1];
-		FWrev[2] = global_packet.data[2];
-		FWrev[3] = global_packet.data[3];
-		FWrev[4] = '\0'; //Null-terminate string
+		if (writeCommand(GET_FW_REVISION))
+		{		
+			char FWrev[5];
+			FWrev[0] = global_packet.data[0];
+			FWrev[1] = global_packet.data[1];
+			FWrev[2] = global_packet.data[2];
+			FWrev[3] = global_packet.data[3];
+			FWrev[4] = '\0'; //Null-terminate string
 
+			cprint("[**] ", BRIGHT, CYAN);
+			printf("Firmware Version: %s\n", FWrev);
+		}
+		
 		cprint("[**] ", BRIGHT, CYAN);
-		printf("Firmware Version: %s\n", FWrev);
+		printf("Reseting IMU registers.\n");
+		
+		//baud rate of the UM7 main serial port = 115200
+		//baud rate of the UM7 auxiliary serial port = 57600
+
+		uint8_t com_settings[4] = {4 + (5 << 4), 0, 1, 0};	
+		uint8_t health_rate[4] = {0, 6, 0, 0};
+		uint8_t position_rate[4] = {0, 0, 100, 100};
+		uint8_t misc_settings[4] = {0, 0, 0, 1};
+		
+		writeRegister(CREG_COM_SETTINGS, 4, com_settings);		// baud rates, auto transmission		
+		writeRegister(CREG_COM_RATES1, 4, zero_buffer);			// raw gyro, accel and mag rate	
+		writeRegister(CREG_COM_RATES2, 4, zero_buffer);			// temp rate and all raw data rate		
+		writeRegister(CREG_COM_RATES3, 4, zero_buffer);			// proc accel, gyro, mag rate		
+		writeRegister(CREG_COM_RATES4, 4, zero_buffer);		 	// all proc data rate	
+		writeRegister(CREG_COM_RATES5, 4, position_rate);		// quart, euler, position, velocity rate
+		writeRegister(CREG_COM_RATES6, 4, health_rate);			// heartbeat rate
+		writeRegister(CREG_COM_RATES7, 4, zero_buffer);			// CHR NMEA-style packets
+		writeRegister(CREG_MISC_SETTINGS, 4, misc_settings);	// miscellaneous filter and sensor control options
 	}
 	
-	//writeCommand(RESET_EKF);
-	//writeCommand(ZERO_GYROS);
+	writeCommand(RESET_EKF);	
+	writeCommand(ZERO_GYROS);
 	
 	//let gps lock before setting reference points 
 	//getHeartbeat();
@@ -193,6 +194,8 @@ void initIMU(int is_debug_mode, int is_reset)
 	
 	writeCommand(SET_MAG_REFERENCE);
 	writeCommand(SET_HOME_POSITION);
+	
+
 }
 
 
@@ -200,7 +203,7 @@ int txPacket(packet* tx_packet)
 {  
 	int msg_len = tx_packet->n_data_bytes + 7;
 
-	char tx_buffer[msg_len + 1];
+	uint8_t tx_buffer[msg_len + 1];
 	//Add header to buffer
 	tx_buffer[0] = 's';
 	tx_buffer[1] = 'n';
@@ -223,13 +226,13 @@ int txPacket(packet* tx_packet)
 	tx_buffer[6 + i] = checksum & 0xff;
 	tx_buffer[msg_len++] = 0x0a; //new line numerical value
 	
-	if (write(getFileID(), &tx_buffer, strlen(tx_buffer)) < 0)
+	if (sp_nonblocking_write(port, (const void*)tx_buffer, msg_len) < 0)
 	{
 		cprint("[!!] ", BRIGHT, RED);
-		fprintf(stderr, "UART TX error.\n");
+		fprintf(stderr, "UART write error.\n");
 		return 0;
 	}
-	
+
 	return 1;
 }
 
@@ -239,7 +242,7 @@ int rxPacket(int address, int attempts)
 {
 	for (int i = 0; i < attempts; i++)
 	{
-		if (parseUART(address, uart_buffer, getUART()) == 1)
+		if (parseUART(address, byte_buffer, getUART()) == 1) 
 		{
 			//found valid packet matching address -> global packet
 			return 1; 
@@ -261,21 +264,23 @@ int writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 	
 	if (n_data_bytes != 0)
 	{
-		// packet contains data
-		tx_packet.packet_type |= PT_HAS_DATA; 					
+		tx_packet.packet_type |= PT_HAS_DATA; // packet contains data			
 	}	
 	
-	// populate packet data
 	for (int i = 0; i < n_data_bytes; i++)
 	{
-		tx_packet.data[i] = data[i];
+		tx_packet.data[i] = data[i]; // populate packet data
 	}			
+	
+	txPacket(&tx_packet);
 	
 	int i = 0;
 	
 	do 
 	{
 		txPacket(&tx_packet);
+		
+		usleep(0.1e6);
 		
 		if (i++ == TX_PACKET_ATTEMPTS)
 		{
@@ -317,6 +322,12 @@ int writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 				case RESET_EKF:
 					printf("RESET_EKF.\n");
 					break;
+				case RESET_TO_FACTORY:
+					printf("RESET_TO_FACTORY.\n");
+					break;
+				case GET_FW_REVISION:
+					printf("GET_FW_REVISION.\n");
+					break;
 				default:
 					printf("UM7_R%i.\n", tx_packet.address);
 					break;
@@ -324,16 +335,15 @@ int writeRegister(uint8_t address, uint8_t n_data_bytes, uint8_t *data)
 	
 			return 0;
 		}
-	}	
-	while(rxPacket(address, 1) != 1);
+	} while(rxPacket(address, 1) != 1);
 	
 	return 1;
 }
 
 
-void writeCommand(int command)
+int writeCommand(int command)
 {
-	if(writeRegister(command, 0, zero_buffer))
+	if (writeRegister(command, 0, zero_buffer))
 	{
 		if (global_packet.packet_type & PT_CF)
 		{
@@ -368,9 +378,13 @@ void writeCommand(int command)
 				case RESET_EKF:
 					printf("Extended Kalman filter reset.\n");
 					break;
-			}			
+			}	
+			
+			return 1;		
 		}				
-	}
+	}	
+	
+	return 0;
 }
 
 
@@ -492,6 +506,7 @@ void printConfiguration(void)
 	
 	if (writeRegister(CREG_COM_SETTINGS, 0, zero_buffer))
 	{
+		cprint("[**] ", BRIGHT, CYAN);
 		printf("CREG_COM_SETTINGS (%i):\n", global_packet.address);
 		printf("baud_rate: \t%i\n", (global_packet.data[0] & 0b11110000) >> 4);
 		printf("gps_baud: \t%i\n", (global_packet.data[0] & 0b00001111) >> 0);
@@ -502,6 +517,7 @@ void printConfiguration(void)
 	
 	if (writeRegister(CREG_COM_RATES1, 0, zero_buffer))
 	{
+		cprint("[**] ", BRIGHT, CYAN);
 		printf("CREG_COM_RATES1 (%i):\n", global_packet.address);
 		printf("raw_acc_rate: \t%i\n", 	global_packet.data[0]);
 		printf("raw_gyro_rate: \t%i\n", global_packet.data[1]);
@@ -511,6 +527,7 @@ void printConfiguration(void)
 	
 	if (writeRegister(CREG_COM_RATES2, 0, zero_buffer))
 	{
+		cprint("[**] ", BRIGHT, CYAN);
 		printf("CREG_COM_RATES2 (%i):\n", global_packet.address);
 		printf("temp_rate: \t%i\n", 	global_packet.data[0]);
 		printf("all_raw_rate: \t%i\n", 	global_packet.data[3]);
@@ -519,6 +536,7 @@ void printConfiguration(void)
 	
 	if (writeRegister(CREG_COM_RATES3, 0, zero_buffer))
 	{
+		cprint("[**] ", BRIGHT, CYAN);
 		printf("CREG_COM_RATES3 (%i):\n", global_packet.address);
 		printf("proc_acc_rate: \t%i\n", global_packet.data[0]);
 		printf("proc_gyro_rate: %i\n", 	global_packet.data[1]);
@@ -528,6 +546,7 @@ void printConfiguration(void)
 	
 	if (writeRegister(CREG_COM_RATES4, 0, zero_buffer))
 	{
+		cprint("[**] ", BRIGHT, CYAN);
 		printf("CREG_COM_RATES4 (%i):\n", global_packet.address);
 		printf("all_proc_rate: \t%i\n", global_packet.data[3]);
 		printf("\n");
@@ -535,6 +554,7 @@ void printConfiguration(void)
 	
 	if (writeRegister(CREG_COM_RATES5, 0, zero_buffer))
 	{
+		cprint("[**] ", BRIGHT, CYAN);
 		printf("CREG_COM_RATES5 (%i):\n", global_packet.address);
 		printf("quat_rate: \t%i\n", 	global_packet.data[0]);
 		printf("euler_rate: \t%i\n", 	global_packet.data[1]);
@@ -545,6 +565,7 @@ void printConfiguration(void)
 	
 	if (writeRegister(CREG_COM_RATES6, 0, zero_buffer))
 	{
+		cprint("[**] ", BRIGHT, CYAN);
 		printf("CREG_COM_RATES6 (%i):\n", global_packet.address);
 		printf("pose_rate: \t%i\n", global_packet.data[0]);
 		printf("health_rate: \t%i\n", (global_packet.data[1] & 0b00001111));
@@ -553,6 +574,7 @@ void printConfiguration(void)
 	
 	if (writeRegister(CREG_COM_RATES7, 0, zero_buffer))
 	{
+		cprint("[**] ", BRIGHT, CYAN);
 		printf("CREG_COM_RATES7 (%i):\n", global_packet.address);
 		printf("health_rate: \t%i\n", 	(global_packet.data[0] & 0b11110000) >> 4);
 		printf("pose_rate: \t%i\n", 	(global_packet.data[0] & 0b00001111) >> 0);
@@ -566,6 +588,7 @@ void printConfiguration(void)
 	
 	if (writeRegister(CREG_MISC_SETTINGS, 0, zero_buffer))
 	{
+		cprint("[**] ", BRIGHT, CYAN);
 		printf("CREG_MISC_SETTINGS (%i):\n", global_packet.address);
 		printf("pps: \t\t%i\n", 		checkBit(global_packet.data[2], 0));
 		printf("gyro_bias: \t%i\n", 	checkBit(global_packet.data[3], 2));
@@ -573,6 +596,99 @@ void printConfiguration(void)
 		printf("mag_state: \t%i\n", 	checkBit(global_packet.data[3], 0));
 		printf("\n");
 	}
+}
+
+
+
+void list_ports(void)
+{
+	int i;
+	struct sp_port **ports;
+
+	sp_list_ports(&ports);
+
+	for (i = 0; ports[i]; i++)
+	{
+		printf("%s\n", sp_get_port_name(ports[i]));
+	}
+	sp_free_port_list(ports);
+}
+
+
+int getUART(void)
+{
+	int bytes_read = 0;
+	int bytes_waiting = sp_input_waiting(port);
+	
+	if (bytes_waiting > 0) 
+	{
+		//printf("Bytes waiting %i\n", bytes_waiting);	
+
+		memset(byte_buffer, 0, bytes_waiting*sizeof(uint8_t));
+		
+		bytes_read = sp_nonblocking_read(port, byte_buffer, bytes_waiting);
+		
+		if (bytes_read < 0)
+		{
+			printf("Error reading from UART.\n");
+			exit(EXIT_FAILURE);
+		}
+	}
+	return bytes_read;
+}
+
+
+void initUART(void)
+{
+	if (sp_get_port_by_name(UART_PORT, &port) == SP_OK) 
+	{		
+		if (sp_open(port, SP_MODE_READ_WRITE) == SP_OK)
+		{
+			cprint("[OK] ", BRIGHT, GREEN);
+			printf("Opened serial port %s - %s.\n", sp_get_port_name(port), sp_get_port_description(port));
+			
+			sp_new_config(&port_config);
+			sp_set_config_baudrate(port_config, UART_BAUD_RATE);
+			sp_set_config_bits(port_config, UART_BITS);
+			sp_set_config_parity(port_config, SP_PARITY_NONE);
+			sp_set_config_stopbits(port_config, UART_STOPBITS);
+			sp_set_config_rts(port_config, SP_RTS_OFF);
+			sp_set_config_cts(port_config, SP_CTS_IGNORE);
+			sp_set_config_dtr(port_config, SP_DTR_OFF);
+			sp_set_config_dsr(port_config, SP_DSR_IGNORE);
+			sp_set_config_xon_xoff(port_config, SP_XONXOFF_DISABLED);
+			sp_set_config_flowcontrol(port_config, SP_FLOWCONTROL_NONE);
+			
+			if (sp_set_config(port, port_config) == SP_OK)
+			{
+				cprint("[OK] ", BRIGHT, GREEN);
+				printf("Serial port configured.\n");
+			}
+			else
+			{
+				printf("Could not configure the specified serial port.\n");
+				exit(EXIT_FAILURE);
+			}
+		}
+		else
+		{
+			printf("Could not open the specified serial port.\n");
+			exit(EXIT_FAILURE);
+		}
+	}
+	else
+	{
+		printf("Could not obtain a pointer to a new sp_port structure representing the named port.\n");
+		printf("Try one of the following:\n");
+		list_ports();
+		exit(EXIT_FAILURE);
+	}	
+}
+
+
+void dnitUART(void)
+{
+	sp_close(port);
 }
 
 
