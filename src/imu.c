@@ -169,10 +169,10 @@ void initIMU(int is_debug_mode, int is_reset)
 		//baud rate of the UM7 main serial port = 115200
 		//baud rate of the UM7 auxiliary serial port = 57600
 
-		uint8_t com_settings[4] = {4 + (5 << 4), 0, 1, 0};	
+		uint8_t com_settings[4] = {5 + (5 << 4), 0, 1, 0};	
 		uint8_t health_rate[4] = {0, 6, 0, 0};
-		uint8_t all_proc_rate[4] = {0, 0, 0, 10};
-		uint8_t position_rate[4] = {0, 10, 10, 10};
+		uint8_t all_proc_rate[4] = {0, 0, 0, 0};
+		uint8_t position_rate[4] = {0, 0, 10, 10};
 		uint8_t misc_settings[4] = {0, 0, 0, 1};
 		
 		writeRegister(CREG_COM_SETTINGS, 4, com_settings);		// baud rates, auto transmission		
@@ -199,7 +199,7 @@ void initIMU(int is_debug_mode, int is_reset)
 	writeCommand(SET_MAG_REFERENCE);
 	writeCommand(SET_HOME_POSITION);
 	
-
+	if (is_debug_mode) printHome();
 }
 
 
@@ -492,6 +492,28 @@ void printHeartbeat(void)
 }
 
 
+void printHome(void)
+{
+	if (writeRegister(CREG_HOME_NORTH, 0, zero_buffer))
+	{
+		cprint("[**] ", BRIGHT, CYAN);
+		printf("Latitude: \t%f\n", bit8ArrayToFloat(global_packet.data));
+	}
+		
+	if (writeRegister(CREG_HOME_EAST, 0, zero_buffer))
+	{
+		cprint("[**] ", BRIGHT, CYAN);
+		printf("Longitude: %f\n", bit8ArrayToFloat(global_packet.data));
+	}
+	
+	if (writeRegister(CREG_HOME_UP, 0, zero_buffer))
+	{
+		cprint("[**] ", BRIGHT, CYAN);
+		printf("Altitude: \t%f [m]\n", bit8ArrayToFloat(global_packet.data));
+	}
+}
+
+
 void printRegister(uint8_t address)
 {
 	if (writeRegister(address, 0, zero_buffer))
@@ -594,10 +616,10 @@ void printConfiguration(void)
 	{
 		cprint("[**] ", BRIGHT, CYAN);
 		printf("CREG_MISC_SETTINGS (%i):\n", global_packet.address);
-		printf("pps: \t\t%i\n", 		checkBit(global_packet.data[2], 0));
-		printf("gyro_bias: \t%i\n", 	checkBit(global_packet.data[3], 2));
-		printf("quaternion: \t%i\n", 	checkBit(global_packet.data[3], 1));
-		printf("mag_state: \t%i\n", 	checkBit(global_packet.data[3], 0));
+		printf("pps: \t\t%s\n", 		checkBit(global_packet.data[2], 0) ? "enabled" : "disabled");
+		printf("gyro_bias: \t%s\n", 	checkBit(global_packet.data[3], 2) ? "enabled" : "disabled");
+		printf("quaternion: \t%s\n", 	checkBit(global_packet.data[3], 1) ? "enabled" : "disabled");
+		printf("mag_state: \t%s\n", 	checkBit(global_packet.data[3], 0) ? "enabled" : "disabled");
 		printf("\n");
 	}
 }

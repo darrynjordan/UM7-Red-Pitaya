@@ -36,10 +36,6 @@ int main(int argc, char *argv[])
 	
 	getHeartbeat();
 	printHeartbeat();
-	
-	printRegister(CREG_HOME_NORTH);
-	printRegister(CREG_HOME_EAST);
-	printRegister(CREG_HOME_UP);
 
 	pthread_t imu_thread;
 

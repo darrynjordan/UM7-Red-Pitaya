@@ -120,6 +120,7 @@ void printConfiguration(void);
 
 void getHeartbeat(void);
 void printHeartbeat(void);
+void printHome(void);
 
 uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length);
 
