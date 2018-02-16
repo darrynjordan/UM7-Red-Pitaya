@@ -2,6 +2,7 @@
 #define COLOUR_H
 
 #include <stdio.h>
+#include <string.h>
 
 #define RESET           0
 #define BRIGHT          1
@@ -22,5 +23,6 @@
 #define WHITE           8
 
 void cprint(const char* text, int attr, int fg);
+void ctext(char* out, const char* text, int attr, int fg);
 
 #endif

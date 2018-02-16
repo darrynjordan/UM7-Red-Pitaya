@@ -45,19 +45,43 @@
 #define DREG_GYRO_PROC_Y  		0x62
 #define DREG_GYRO_PROC_Z  		0x63
 #define DREG_GYRO_PROC_TIME		0x64
+
 #define DREG_ACCEL_PROC_X		0x65
 #define DREG_ACCEL_PROC_Y		0x66
 #define DREG_ACCEL_PROC_Z		0x67
 #define DREG_ACCEL_PROC_TIME	0x67
+
 #define DREG_MAG_PROC_X 		0x69
 #define DREG_MAG_PROC_Y 		0x6A
 #define DREG_MAG_PROC_Z 		0x6B
 #define DREG_MAG_PROC_TIME 		0x6C
 
+#define DREG_QUAT_AB			0x6D
+#define DREG_QUAT_CD			0x6E
+#define DREG_QUAT_TIME			0x6F
+
+#define DREG_EULER_PHI_THETA	0x70
+#define DREG_EULER_PSI			0x71
+#define DREG_EULER_PHI_THETA_DOT 0x72
+#define DREG_EULER_PSI_DOT		0x73
+#define DREG_EULER_TIME			0x74
+
 #define DREG_POSITION_N 		0x75
 #define DREG_POSITION_E 		0x76
 #define DREG_POSITION_UP 		0x77
 #define DREG_POSITION_TIME 		0x78
+
+#define DREG_VELOCITY_N			0x79
+#define DREG_VELOCITY_E			0x7A
+#define DREG_VELOCITY_UP		0x7B
+#define DREG_VELOCITY_TIME		0x7C
+
+#define DREG_GPS_LATITUDE		0x7D
+#define DREG_GPS_LONGITUDE		0x7E
+#define DREG_GPS_ALTITUDE		0x7F
+#define DREG_GPS_COURSE			0x80
+#define DREG_GPS_SPEED			0x81
+#define DREG_GPS_TIME			0x82
 
 #define GET_FW_REVISION			0xAA
 #define FLASH_COMMIT			0xAB
@@ -67,12 +91,7 @@
 #define SET_MAG_REFERENCE		0xB0
 #define RESET_EKF				0xB3
 
-#define DREG_GPS_LATITUDE		0x7D
-#define DREG_GPS_LONGITUDE		0x7E
-#define DREG_GPS_ALTITUDE		0x7F
-#define DREG_GPS_COURSE			0x80
-#define DREG_GPS_SPEED			0x81
-#define DREG_GPS_TIME			0x82
+
 
 #define PT_HAS_DATA 			0b10000000
 #define PT_IS_BATCH 			0b01000000

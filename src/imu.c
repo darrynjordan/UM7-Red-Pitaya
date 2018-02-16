@@ -166,13 +166,13 @@ void initIMU(int is_debug_mode, int is_reset)
 		cprint("[**] ", BRIGHT, CYAN);
 		printf("Reseting IMU registers.\n");
 		
-		//baud rate of the UM7 main serial port = 115200
-		//baud rate of the UM7 auxiliary serial port = 57600
+		//baud rate of the UM7 main serial port = 115200 (5)
+		//baud rate of the UM7 auxiliary serial port = 57600 (4)
 
-		uint8_t com_settings[4] = {5 + (5 << 4), 0, 1, 0};	
-		uint8_t health_rate[4] = {0, 6, 0, 0};
+		uint8_t com_settings[4]  = {4 + (5 << 4), 0, 1, 0};	
+		uint8_t health_rate[4] 	 = {10, 6, 0, 0};
 		uint8_t all_proc_rate[4] = {0, 0, 0, 0};
-		uint8_t position_rate[4] = {0, 0, 10, 10};
+		uint8_t position_rate[4] = {10, 10, 10, 10};
 		uint8_t misc_settings[4] = {0, 0, 0, 1};
 		
 		writeRegister(CREG_COM_SETTINGS, 4, com_settings);		// baud rates, auto transmission		
@@ -185,8 +185,7 @@ void initIMU(int is_debug_mode, int is_reset)
 		writeRegister(CREG_COM_RATES7, 4, zero_buffer);			// CHR NMEA-style packets
 		writeRegister(CREG_MISC_SETTINGS, 4, misc_settings);	// miscellaneous filter and sensor control options
 	}
-	
-	writeCommand(RESET_EKF);	
+		
 	writeCommand(ZERO_GYROS);
 	
 	//let gps lock before setting reference points 
@@ -198,8 +197,9 @@ void initIMU(int is_debug_mode, int is_reset)
 	
 	writeCommand(SET_MAG_REFERENCE);
 	writeCommand(SET_HOME_POSITION);
+	writeCommand(RESET_EKF);
 	
-	if (is_debug_mode) printHome();
+	printHome();
 }
 
 
@@ -479,9 +479,15 @@ void printHeartbeat(void)
 
 	int imu_sum = (beat.mag_fail + beat.mag_fail + beat.gyro_fail + beat.acc_fail + beat.acc_norm + beat.mag_norm);
 	
-	char* gps_status = (beat.gps_fail) ? "NO" : "OK";
-	char* uart_status = (beat.uart_fail) ? "NO" : "OK";
-	char* imu_status = (imu_sum) ? "NO" : "OK";
+	char ok[20];
+	char no[20];
+	
+	ctext(ok, "OK", BRIGHT, GREEN);
+	ctext(no, "NO", BRIGHT, RED);
+	
+	char* gps_status  = (beat.gps_fail)  ? no : ok;
+	char* uart_status = (beat.uart_fail) ? no : ok;
+	char* imu_status  = (imu_sum)        ? no : ok;
 	
 	printf("---------------------------\n");
 	printf("| GPS | IMU | UART | SATS |\n");
@@ -509,7 +515,7 @@ void printHome(void)
 	if (writeRegister(CREG_HOME_UP, 0, zero_buffer))
 	{
 		cprint("[**] ", BRIGHT, CYAN);
-		printf("Altitude: \t%f [m]\n", bit8ArrayToFloat(global_packet.data));
+		printf("Altitude: \t%f\n", bit8ArrayToFloat(global_packet.data));
 	}
 }
 
