@@ -81,9 +81,16 @@ int main(int argc, char *argv[])
 
 void imu_worker(void)
 {
-	FILE *imuFile;
+	FILE *f_imu_bin;
+	FILE *f_imu_txt;
 
-	if (!(imuFile = fopen("imu.bin", "wb")))
+	if (!(f_imu_bin = fopen("imu.bin", "wb")))
+	{
+		printf("imu file open failed\n");
+		exit(EXIT_FAILURE);
+	}
+	
+	if (!(f_imu_txt = fopen("imu.txt", "w")))
 	{
 		printf("imu file open failed\n");
 		exit(EXIT_FAILURE);
@@ -93,12 +100,14 @@ void imu_worker(void)
 	while (is_experiment_active)
 	{
 		int bytes_read = getUART();
-		printf("Read %i bytes\n", bytes_read);
-		fwrite(byte_buffer, sizeof(uint8_t), bytes_read, imuFile);
-		usleep(0.5e6);
+		//printf("Read %i bytes\n", bytes_read);
+		fprintf(f_imu_txt, "%s\n", byte_buffer);
+		fwrite(byte_buffer, sizeof(uint8_t), bytes_read, f_imu_bin);
+		usleep(0.1e6);
 	}
 
-	fclose(imuFile);
+	fclose(f_imu_bin);
+	fclose(f_imu_txt);
 }
 
 

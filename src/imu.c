@@ -169,10 +169,11 @@ void initIMU(int is_debug_mode, int is_reset)
 		//baud rate of the UM7 main serial port = 115200 (5)
 		//baud rate of the UM7 auxiliary serial port = 57600 (4)
 
-		uint8_t com_settings[4]  = {4 + (5 << 4), 0, 1, 0};	
-		uint8_t health_rate[4] 	 = {10, 6, 0, 0};
+		uint8_t com_settings[4]  = {(4 << 0) + (5 << 4), 0, 0, 0};	
+		uint8_t health_rate[4] 	 = {0, 1, 0, 0};
+		uint8_t chr_nmea_rate[4] = {(1 << 0) + (1 << 4), 0, (0 << 0) + (1 << 4), 0};
 		uint8_t all_proc_rate[4] = {0, 0, 0, 0};
-		uint8_t position_rate[4] = {10, 10, 10, 10};
+		uint8_t position_rate[4] = {0, 0, 0, 0};
 		uint8_t misc_settings[4] = {0, 0, 0, 1};
 		
 		writeRegister(CREG_COM_SETTINGS, 4, com_settings);		// baud rates, auto transmission		
@@ -182,23 +183,23 @@ void initIMU(int is_debug_mode, int is_reset)
 		writeRegister(CREG_COM_RATES4, 4, all_proc_rate);		// all proc data rate	
 		writeRegister(CREG_COM_RATES5, 4, position_rate);		// quart, euler, position, velocity rate
 		writeRegister(CREG_COM_RATES6, 4, health_rate);			// heartbeat rate
-		writeRegister(CREG_COM_RATES7, 4, zero_buffer);			// CHR NMEA-style packets
+		writeRegister(CREG_COM_RATES7, 4, chr_nmea_rate);		// CHR NMEA-style packets
 		writeRegister(CREG_MISC_SETTINGS, 4, misc_settings);	// miscellaneous filter and sensor control options
+	
+		//writeCommand(FLASH_COMMIT);
+		writeCommand(ZERO_GYROS);
+		writeCommand(SET_MAG_REFERENCE);
+		writeCommand(SET_HOME_POSITION);
+		writeCommand(RESET_EKF);
+	
+		//let gps lock before setting reference points 
+		/*while (beat.sats_used < 3)
+		{
+			getHeartbeat();
+			printHeartbeat();
+		}*/
 	}
 		
-	writeCommand(ZERO_GYROS);
-	
-	//let gps lock before setting reference points 
-	/*while (beat.sats_used < 3)
-	{
-		getHeartbeat();
-		printHeartbeat();
-	}*/
-	
-	writeCommand(SET_MAG_REFERENCE);
-	writeCommand(SET_HOME_POSITION);
-	writeCommand(RESET_EKF);
-	
 	printHome();
 }
 
@@ -492,7 +493,7 @@ void printHeartbeat(void)
 	printf("---------------------------\n");
 	printf("| GPS | IMU | UART | SATS |\n");
 	printf("---------------------------\n");
-	printf("| %s  | %s  |  %s  | %i/%2i |\n", gps_status, imu_status, uart_status, beat.sats_used, beat.sats_view);	
+	printf("| %s  | %s  | %s   | %i/%2i |\n", gps_status, imu_status, uart_status, beat.sats_used, beat.sats_view);	
 	printf("---------------------------\n");
 	
 }
@@ -677,7 +678,7 @@ void initUART(void)
 		if (sp_open(port, SP_MODE_READ_WRITE) == SP_OK)
 		{
 			cprint("[OK] ", BRIGHT, GREEN);
-			printf("Opened serial port %s - %s.\n", sp_get_port_name(port), sp_get_port_description(port));
+			printf("Opened serial port: %s.\n", sp_get_port_name(port));
 			
 			sp_new_config(&port_config);
 			sp_set_config_baudrate(port_config, UART_BAUD_RATE);
