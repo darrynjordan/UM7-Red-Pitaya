@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 		printf("Experiment active.\n");
 	}
 
-	for (int j = 0; j < 5; j++)
+	while (1)
 	{
 		//sleep for a while to emulate other work
 		sleep(1);

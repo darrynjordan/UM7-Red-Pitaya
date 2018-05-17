@@ -31,6 +31,10 @@
 #define CREG_COM_RATES7 		0x07
 #define CREG_MISC_SETTINGS		0x08
 
+#define CREG_HOME_NORTH			0x09
+#define CREG_HOME_EAST			0x0A
+#define CREG_HOME_UP			0x0B
+
 #define DREG_HEALTH 			0x55
 
 #define DREG_TEMPERATURE 		0x5F
@@ -49,8 +53,6 @@
 #define DREG_MAG_PROC_Y 		0x6A
 #define DREG_MAG_PROC_Z 		0x6B
 #define DREG_MAG_PROC_TIME 		0x6C
-
-#define DREG_POSITION 			0x75
 
 #define DREG_POSITION_N 		0x75
 #define DREG_POSITION_E 		0x76
@@ -118,6 +120,7 @@ void printConfiguration(void);
 
 void getHeartbeat(void);
 void printHeartbeat(void);
+void printHome(void);
 
 uint8_t parseUART(int address, uint8_t* rx_data, uint8_t rx_length);
 
