@@ -12,7 +12,7 @@
 #include "colour.h"
 #include "binary.h"
 
-#define UART_PORT  				"/dev/ttyPS1"
+#define UART_PORT  				"/dev/ttyUSB0"
 #define UART_BAUD_RATE			115200
 #define UART_BITS				8
 #define UART_STOPBITS			1
@@ -66,7 +66,7 @@
 #define RESET_EKF				0xB3
 
 #define DREG_GPS_LATITUDE		0x7D
-#define DREG_GPS_LONGITUDE		0x7E
+#define DREG_GPS_LONGITUDE	    0x7E
 #define DREG_GPS_ALTITUDE		0x7F
 #define DREG_GPS_COURSE			0x80
 #define DREG_GPS_SPEED			0x81

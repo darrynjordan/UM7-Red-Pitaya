@@ -5,7 +5,8 @@
 RP_HOST=root@10.42.0.186
 DEST_DIR=/opt/redpitaya/rpc
 
-CC=arm-linux-gnueabihf-gcc
+#CC=arm-linux-gnueabihf-gcc
+CC=gcc
 #HAD TO CHANGE AWAY FROM GNUEABI
 
 #Default location for h files is ./source
@@ -25,7 +26,7 @@ BIN = um7rp
 
 um7rp: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
-	scp $(BIN) $(RP_HOST):$(DEST_DIR)
+	#scp $(BIN) $(RP_HOST):$(DEST_DIR)
 
 .PHONY: clean
 
