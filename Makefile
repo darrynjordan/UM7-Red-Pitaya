@@ -32,4 +32,4 @@ native: $(OBJ)
 .PHONY: clean
 
 clean:
-	rm -f *.o src/*.o
+	rm -f *.o src/*.o *.bin *.txt $(BIN)

@@ -171,10 +171,10 @@ void initIMU(int is_debug_mode, int is_reset)
 
 		uint8_t com_settings[4]  = {(4 << 0) + (5 << 4), 0, 0, 0};	
 		uint8_t health_rate[4] 	 = {0, 1, 0, 0};
-		uint8_t chr_nmea_rate[4] = {(1 << 0) + (1 << 4), 0, (0 << 0) + (1 << 4), 0};
+		uint8_t chr_nmea_rate[4] = {(1 << 0) + (1 << 4), 0, (1 << 0) + (1 << 4), 0};
 		uint8_t all_proc_rate[4] = {0, 0, 0, 0};
 		uint8_t position_rate[4] = {0, 0, 0, 0};
-		uint8_t misc_settings[4] = {0, 0, 0, 1};
+		uint8_t misc_settings[4] = {0, 0, 1, 1};
 		
 		writeRegister(CREG_COM_SETTINGS, 4, com_settings);		// baud rates, auto transmission		
 		writeRegister(CREG_COM_RATES1, 4, zero_buffer);			// raw gyro, accel and mag rate	
